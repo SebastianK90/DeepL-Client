@@ -1,0 +1,6 @@
+export const languages = Object.entries({AUTO:'Automatisch erkennen',DE:'Deutsch',EN:'Englisch','EN-GB':'Englisch (UK)','EN-US':'Englisch (USA)',FR:'Französisch',ES:'Spanisch',IT:'Italienisch',NL:'Niederländisch',PL:'Polnisch',PT:'Portugiesisch','PT-BR':'Portugiesisch (Brasilien)','PT-PT':'Portugiesisch (Portugal)',JA:'Japanisch',ZH:'Chinesisch',KO:'Koreanisch',RU:'Russisch',UK:'Ukrainisch',CS:'Tschechisch',DA:'Dänisch',EL:'Griechisch',FI:'Finnisch',HU:'Ungarisch',ID:'Indonesisch',NB:'Norwegisch',RO:'Rumänisch',SK:'Slowakisch',SL:'Slowenisch',SV:'Schwedisch',TR:'Türkisch',BG:'Bulgarisch',ET:'Estnisch',LT:'Litauisch',LV:'Lettisch',AR:'Arabisch'});
+export const writeLanguages = ['DE','EN','EN-GB','EN-US','FR','ES','IT','PT','PT-BR','PT-PT','JA','ZH','KO'];
+export function languageChoices(mode,locale,query=''){
+ const q=query.trim().toLocaleLowerCase(locale);const names=new Intl.DisplayNames([locale],{type:'language'});
+ return languages.filter(([code])=>code!=='AUTO'&&(mode!=='write'||writeLanguages.includes(code))).map(([code,original])=>({code,label:names.of(code.toLowerCase())||original,original})).filter(item=>!q||[item.code,item.label,item.original].some(text=>text.toLocaleLowerCase(locale).includes(q)));
+}

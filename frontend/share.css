@@ -1,0 +1,13 @@
+#share-dialog{width:420px;padding:24px;overflow:auto}
+#share-dialog .dialog-header{margin-bottom:12px}
+#share-dialog .dialog-header h2{font-size:21px}
+.share-preview{font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;max-height:100px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;margin:16px 0}
+.share-targets{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.share-target{display:flex;align-items:center;gap:12px;text-align:left;padding:16px 12px;min-height:82px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
+.share-target:hover:not(:disabled){background:var(--tint);border-color:var(--green)}
+.share-target strong{display:block;font-size:14px}
+.share-target small{display:block;font-size:10px;color:var(--muted);line-height:1.5;margin-top:4px}
+.share-app-icon{display:grid;place-items:center;flex-shrink:0;width:32px;height:36px;border-radius:7px;color:white;font-size:22px;font-weight:650;box-shadow:0 3px 9px #0002}
+.share-teams-icon{background:#6264a7}.share-outlook-icon{background:#0078d4}
+#share-error{font-size:12px;line-height:1.6;color:var(--ink);border-left:3px solid var(--green);padding-left:10px;margin-bottom:0}
+#share-dialog .share-note{font-size:11px;line-height:1.7;color:var(--muted);margin:14px 0 0}

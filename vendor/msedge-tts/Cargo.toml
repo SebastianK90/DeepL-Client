@@ -1,0 +1,130 @@
+[package]
+name = "msedge-tts"
+version = "0.4.1"
+edition = "2024"
+description = "This library is a wrapper of MSEdge Read aloud function API. You can use it to synthesize text to speech with many voices MS provided."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/hs-CN/msedge-tts"
+keywords = ["tts", "text-to-speech", "msedge-tts", "edge-tts"]
+categories = ["multimedia::audio"]
+readme = "README.md"
+exclude = ["examples/*"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[package.metadata.docs.rs]
+features = ["blocking", "proxy", "smol-runtime", "tokio-runtime"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+
+[features]
+default = ["blocking"]
+proxy = [
+    "ureq?/socks-proxy",
+    "reqwest?/socks",
+    "rustls",
+    "http",
+    "httparse",
+    "base64",
+]
+blocking = [
+    "ureq",
+    "tungstenite/__rustls-tls",
+    "rustls",
+    "rustls-platform-verifier",
+]
+smol-runtime = [
+    "reqwest",
+    "async-compat",
+    "async-tungstenite/smol-runtime",
+    "async-tungstenite/futures-rustls-platform-verifier",
+    "smol",
+    "futures-util",
+    "futures-rustls",
+    "rustls-platform-verifier",
+]
+tokio-runtime = [
+    "reqwest",
+    "async-tungstenite/tokio-runtime",
+    "async-tungstenite/tokio-rustls-platform-verifier",
+    "tokio",
+    "futures-util",
+    "tokio-rustls",
+    "rustls-platform-verifier",
+]
+
+
+[dependencies]
+chrono = "0.4.44"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+thiserror = "2.0.18"
+tungstenite = "0.29.0"
+uuid = { version = "1.23.1", features = ["fast-rng", "v4"] }
+
+[dependencies.ureq]
+version = "3.3.0"
+optional = true
+default-features = false
+features = ["gzip", "json", "rustls-no-provider", "platform-verifier"]
+
+[dependencies.reqwest]
+version = "0.12"
+optional = true
+default-features = false
+features = ["gzip", "json", "rustls-tls"]
+
+[dependencies.async-compat]
+version = "0.2.5"
+optional = true
+
+[dependencies.rustls]
+version = "0.23.40"
+optional = true
+default-features = false
+features = ["ring", "std", "tls12"]
+
+[dependencies.rustls-platform-verifier]
+version = "0.6.2"
+optional = true
+
+[dependencies.http]
+version = "1.4.0"
+optional = true
+
+[dependencies.httparse]
+version = "1.10.1"
+optional = true
+
+[dependencies.base64]
+version = "0.22.1"
+optional = true
+
+[dependencies.async-tungstenite]
+version = "0.34.1"
+optional = true
+
+[dependencies.smol]
+version = "2.0.2"
+optional = true
+
+[dependencies.futures-rustls]
+version = "0.26.0"
+optional = true
+
+[dependencies.futures-util]
+version = "0.3.32"
+optional = true
+default-features = false
+features = ["std", "io"]
+
+[dependencies.tokio]
+version = "1.52.3"
+optional = true
+
+[dependencies.tokio-rustls]
+version = "0.26.4"
+optional = true
+default-features = false
+features = ["ring", "tls12"]
+
+
