@@ -1,0 +1,53 @@
+# Rust, Tauri and downloaded/generated runtime assets
+/target/
+/gen/
+/assets/pdfium/
+/libs/
+/.tools/
+/output/
+/dist/
+/vendor/*/target/
+/vendor/*/Cargo.lock
+
+# Local configuration, credentials and user data (keep .cargo/config.toml)
+/config.toml
+/history.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+*.AppImage
+*.exe
+*.dll
+*.zip
+*.tar.gz
+# Documents, recordings and captures belong in local test/output directories.
+*.pdf
+!/tests/fixtures/*.pdf
+*.docx
+*.pptx
+*.xlsx
+*.mp3
+*.wav
+*.har
+*.pcap
+*.dmp
+*.bak
+node_modules/
+.DS_Store
+Thumbs.db
+
+# Local audit history, screenshots and reverse-engineering evidence are not
+# part of the public source distribution. Public documentation is allowlisted.
+/docs/*
+!/docs/BUILD.md
+!/docs/PRIVACY.md
+!/docs/ARCHITECTURE.md
+!/docs/THIRD_PARTY.md
+/leanrea.SKILL.md
+/scripts/retain-evidence.cjs
+/scripts/inspect-artifacts.cjs
