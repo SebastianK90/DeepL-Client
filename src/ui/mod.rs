@@ -22,16 +22,24 @@ mod documents;
 mod dropped_files;
 #[cfg(target_os = "linux")]
 mod kwin_geometry;
+#[cfg(target_os = "linux")]
+mod kwin_pointer;
 mod language_popup;
+#[cfg(target_os = "linux")]
+mod linux_backend;
 mod lookup_controls;
 mod quick_reader;
 mod speech_controls;
+#[cfg(all(target_os = "linux", debug_assertions))]
+mod test_fixture;
 #[cfg(target_os = "linux")]
 mod tray_activation;
 mod tray_click;
 #[cfg(target_os = "linux")]
 mod wayland_language;
 mod window_controls;
+#[cfg(target_os = "windows")]
+mod windows_resize;
 
 pub struct AppState {
     config: Mutex<Config>,
@@ -47,6 +55,8 @@ pub struct AppState {
     move_revision: AtomicU64,
     quick_read_revision: AtomicU64,
     quick_dragging: AtomicBool,
+    #[cfg(target_os = "linux")]
+    quick_cursor: Mutex<Option<kwin_pointer::Snapshot>>,
     language_popup: Mutex<language_popup::PopupData>,
     speech: crate::speech::SpeechClient,
     speech_requests: Mutex<speech_controls::SpeechRequests>,
@@ -72,15 +82,24 @@ fn lock<'a, T>(mutex: &'a Mutex<T>) -> Result<std::sync::MutexGuard<'a, T>, Stri
 }
 
 #[tauri::command]
-async fn bootstrap(state: State<'_, AppState>) -> Result<Bootstrap, String> {
+async fn bootstrap(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<Bootstrap, String> {
+    #[cfg(target_os = "linux")]
+    let inline_quick_languages = linux_backend::uses_native_language_popover(&window).await?;
+    #[cfg(not(target_os = "linux"))]
+    let inline_quick_languages = {
+        let _ = window;
+        false
+    };
     let present =
         tokio::task::spawn_blocking(|| key_entry().and_then(|e| Ok(e.get_password()?)).is_ok())
             .await
             .unwrap_or(false);
     Ok(Bootstrap {
         share_supported: crate::share::supported(),
-        inline_quick_languages: cfg!(target_os = "linux")
-            && std::env::var_os("WAYLAND_DISPLAY").is_some(),
+        inline_quick_languages,
         config: lock(&state.config)?.clone(),
         history: lock(&state.history)?.clone(),
         hotkey_status: lock(&state.hotkey_status)?.clone(),
@@ -232,6 +251,41 @@ fn keep_quick_open_for_test() -> bool {
     #[cfg(not(debug_assertions))]
     {
         false
+    }
+}
+
+#[tauri::command]
+async fn start_quick_resize(
+    window: tauri::Window,
+    state: State<'_, AppState>,
+    edge: Option<crate::core::window_size::ResizeEdge>,
+) -> Result<(), String> {
+    if window.label() != "quick" {
+        return Err("Ungültiges Fenster.".into());
+    }
+    language_popup::close(window.app_handle(), false);
+    let edge = edge.unwrap_or_default();
+    #[cfg(target_os = "windows")]
+    {
+        windows_resize::start(window, state, edge).await
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = state;
+        use crate::core::window_size::ResizeEdge;
+        let direction = match edge {
+            ResizeEdge::North => tauri_runtime::ResizeDirection::North,
+            ResizeEdge::NorthEast => tauri_runtime::ResizeDirection::NorthEast,
+            ResizeEdge::East => tauri_runtime::ResizeDirection::East,
+            ResizeEdge::SouthEast => tauri_runtime::ResizeDirection::SouthEast,
+            ResizeEdge::South => tauri_runtime::ResizeDirection::South,
+            ResizeEdge::SouthWest => tauri_runtime::ResizeDirection::SouthWest,
+            ResizeEdge::West => tauri_runtime::ResizeDirection::West,
+            ResizeEdge::NorthWest => tauri_runtime::ResizeDirection::NorthWest,
+        };
+        window
+            .start_resize_dragging(direction)
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -524,6 +578,28 @@ fn quick_from_reader(app: tauri::AppHandle, read: fn() -> anyhow::Result<String>
             app.try_state::<AppState>()
                 .is_some_and(|state| state.quick_read_revision.load(Ordering::SeqCst) == revision)
         };
+        #[cfg(target_os = "linux")]
+        if kwin_pointer::required() {
+            let snapshot = kwin_pointer::capture(&app).await;
+            if !current() {
+                return;
+            }
+            if let Some(state) = app.try_state::<AppState>() {
+                if snapshot.is_err()
+                    && state
+                        .config
+                        .lock()
+                        .is_ok_and(|c| c.quick_position_policy == QuickPositionPolicy::MouseCursor)
+                {
+                    let _ = app.emit("notice", "Die KDE-Mausposition ist nicht verfügbar. Quick Assist wird mittig geöffnet.");
+                }
+                if let Ok(mut cursor) = state.quick_cursor.lock()
+                    && current()
+                {
+                    *cursor = snapshot.ok();
+                }
+            }
+        }
         let text = quick_reader::read(read, retry, current).await;
         if !current() {
             return;
@@ -608,6 +684,30 @@ fn position_quick(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     } else {
         None
     };
+    #[cfg(target_os = "linux")]
+    let cursor = if kwin_pointer::required() {
+        let native: Vec<_> = monitors
+            .iter()
+            .map(|m| kwin_pointer::Output {
+                name: m.name().cloned().unwrap_or_default(),
+                x: f64::from(m.position().x),
+                y: f64::from(m.position().y),
+                width: f64::from(m.size().width),
+                height: f64::from(m.size().height),
+            })
+            .collect();
+        app.try_state::<AppState>()
+            .and_then(|s| {
+                s.quick_cursor
+                    .lock()
+                    .ok()
+                    .and_then(|snapshot| snapshot.as_ref().and_then(|v| v.map_cursor(&native)))
+            })
+            .map(|(x, y)| tauri::PhysicalPosition::new(x, y))
+    } else {
+        window.cursor_position().ok()
+    };
+    #[cfg(not(target_os = "linux"))]
     let cursor = window.cursor_position().ok();
     let monitor = saved_monitor
         .or_else(|| cursor.and_then(|p| monitors.iter().find(|m| contains(m, p.x, p.y))))
@@ -617,8 +717,17 @@ fn position_quick(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     };
     let area = monitor.work_area();
     let scale = monitor.scale_factor();
-    let width = 492_f64.min(f64::from(area.size.width) / scale);
-    let height = 292_f64.min(f64::from(area.size.height) / scale);
+    // Preserve the user's current size when reopening, clamped to this monitor.
+    let current = window
+        .inner_size()
+        .ok()
+        .map(|size| size.to_logical::<f64>(window.scale_factor().unwrap_or(scale)));
+    let width = current
+        .map_or(492.0, |s| s.width)
+        .min(f64::from(area.size.width) / scale);
+    let height = current
+        .map_or(292.0, |s| s.height)
+        .min(f64::from(area.size.height) / scale);
     let size = (
         (width * scale).round() as u32,
         (height * scale).round() as u32,
@@ -627,7 +736,13 @@ fn position_quick(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
         config.quick_position_policy,
         if config.quick_position_policy == QuickPositionPolicy::MouseCursor {
             cursor.map(|p| SavedPosition {
-                x: (p.x + 12.0 * scale).round() as i32,
+                x: (p.x
+                    + if cfg!(target_os = "linux") {
+                        0.0
+                    } else {
+                        12.0 * scale
+                    })
+                .round() as i32,
                 y: (p.y + 12.0 * scale).round() as i32,
             })
         } else {
@@ -772,6 +887,8 @@ fn tray_pixels(color: [u8; 4]) -> Vec<u8> {
 }
 
 pub fn run() -> Result<()> {
+    #[cfg(target_os = "linux")]
+    linux_backend::configure();
     let context = tauri::generate_context!();
     #[cfg(target_os = "windows")]
     let context = {
@@ -787,6 +904,8 @@ pub fn run() -> Result<()> {
             // and client-area offsets. The web content already paints an opaque panel.
             quick.shadow = false;
             quick.transparent = false;
+            // Use our focus-safe resize regions instead of native modal sizing.
+            quick.resizable = false;
         }
         context
     };
@@ -810,6 +929,8 @@ pub fn run() -> Result<()> {
         move_revision: AtomicU64::new(0),
         quick_read_revision: AtomicU64::new(0),
         quick_dragging: AtomicBool::new(false),
+        #[cfg(target_os = "linux")]
+        quick_cursor: Mutex::new(None),
         language_popup: Mutex::new(language_popup::PopupData::default()),
         speech: crate::speech::SpeechClient::new()?,
         speech_requests: Mutex::new(speech_controls::SpeechRequests::default()),
@@ -848,6 +969,7 @@ pub fn run() -> Result<()> {
                     hide_quick,
                     open_main,
                     start_quick_drag,
+                    start_quick_resize,
                     replace_selection,
                     language_popup::language_popup_state,
                     language_popup::open_language_popup,
@@ -910,12 +1032,18 @@ pub fn run() -> Result<()> {
             tray_activation::install(app.handle())?;
             update_tray(app.handle(), mode);
             language_popup::setup(app.handle())?;
+            #[cfg(target_os = "linux")]
+            if let Some(quick) = app.get_webview_window("quick") {
+                linux_backend::install_quick_placement(app.handle(), &quick)?;
+            }
             crate::hotkey::start(app.handle().clone(), hotkey_ms);
             // The main window is created hidden to avoid flashing before the
             // saved startup preference and tray initialization are applied.
             if !start_in_tray {
                 show_main(app.handle());
             }
+            #[cfg(all(target_os = "linux", debug_assertions))]
+            test_fixture::open_quick(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {

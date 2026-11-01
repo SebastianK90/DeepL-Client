@@ -55,11 +55,20 @@
     <header class="quick-topbar" data-quick-drag>
       <div class="mode-tabs quick-tabs" role="tablist" aria-label="Overlay-Modus"><button id="quick-mode-translate" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h12M8 2v3M5 5c1 5 4 8 9 10M12 5c-1 5-4 8-9 11M13 22l4-10 5 10M15 18h5"/></svg><span>Übersetzer</span></button><button id="quick-mode-write" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 19 10-10 3 3L7 22l-4 1zM14 9l3-3 3 3-3 3M5 3v5M2.5 5.5h5M18 17v5M15.5 19.5h5M11 1v3M9.5 2.5h3"/></svg><span>Write</span></button></div>
       <div id="quick-drag-handle" class="quick-drag-space" data-quick-drag title="Fenster verschieben"></div>
+      <span id="quick-position-indicator" class="quick-position-indicator" role="img" aria-label="Letzte Position merken" title="Letzte Position merken"><svg viewBox="0 0 24 24" aria-hidden="true"><g data-position-policy="mouse_cursor" hidden><path d="m5 3 14 10-7 1-3 7z"/></g><g data-position-policy="centered" hidden><circle cx="12" cy="12" r="6"/><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/></g><g data-position-policy="remember_last"><path d="M19 10c0 5-7 12-7 12S5 15 5 10a7 7 0 0 1 14 0z"/><circle cx="12" cy="10" r="2.5"/></g></svg></span>
       <button id="quick-settings" class="quick-icon-button" aria-label="Einstellungen" title="Einstellungen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 2-.7 3-2 .9L4.5 5l-2 3.5 2.2 2.1v2.8L2.5 16l2 3.5 2.8-.9 2 .9.7 2.5h4l.7-2.5 2-.9 2.8.9 2-3.5-2.2-2.6v-2.8l2.2-2.1L19.5 5l-2.8.9-2-.9L14 2z"/><circle cx="12" cy="12" r="3.2"/></svg></button><button id="quick-close" class="quick-icon-button" aria-label="Overlay schließen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg></button>
     </header>
     <div class="quick-languages"><button id="quick-target" class="quick-language-button" aria-label="Zielsprache" aria-haspopup="listbox" aria-expanded="false"><span id="quick-target-label">Deutsch</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg></button></div>
     <div id="quick-output" class="quick-result" aria-live="polite" tabindex="0"></div>
     <div class="quick-bottom"><button id="quick-copy" class="quick-action" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="7" width="13" height="15" rx="2"/><path d="M15 3H5a2 2 0 0 0-2 2v10"/></svg><span data-button-label>Kopieren</span></button><button id="quick-main" class="quick-action"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-8M8 7h10M8 11h8M3 17l6-6 3 3-6 6-4 1z"/></svg><span id="quick-edit-label" data-button-label>Bearbeiten in DeepL</span></button><button id="quick-replace" class="quick-action quick-primary" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3h9a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2h-9M2 12h13M10 7l5 5-5 5M10 3v3"/></svg><span data-button-label>Ersetzen</span></button></div>
+    <div class="quick-resize-edge" data-quick-resize="north" aria-hidden="true"></div>
+    <div class="quick-resize-edge" data-quick-resize="north_east" aria-hidden="true"></div>
+    <div class="quick-resize-edge" data-quick-resize="east" aria-hidden="true"></div>
+    <div class="quick-resize-edge" data-quick-resize="south" aria-hidden="true"></div>
+    <div class="quick-resize-edge" data-quick-resize="south_west" aria-hidden="true"></div>
+    <div class="quick-resize-edge" data-quick-resize="west" aria-hidden="true"></div>
+    <div class="quick-resize-edge" data-quick-resize="north_west" aria-hidden="true"></div>
+    <div id="quick-resize" class="quick-resize-grip" data-quick-resize="south_east" role="img" aria-label="Fenstergröße ändern" title="Fenstergröße ändern"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="m4 14 10-10M9 14l5-5M14 14h0"/></svg></div>
   </section>
 
   <dialog id="licenses-dialog"><div class="dialog-header"><h2>Drittanbieter-Lizenzen</h2><button class="icon-button" data-close="licenses-dialog" aria-label="Schließen">×</button></div><pre id="licenses-text"></pre></dialog>

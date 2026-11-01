@@ -2,6 +2,10 @@
 // Columns: German source, English, Czech, French, Japanese, Italian.
 export const locales = {en:'English',de:'Deutsch',cs:'Čeština',fr:'Français',ja:'日本語',it:'Italiano'};
 export const messages = [
+['Die KDE-Mausposition ist nicht verfügbar. Quick Assist wird mittig geöffnet.','The KDE pointer position is unavailable. Quick Assist will open centered.','Poloha ukazatele KDE není dostupná. Quick Assist se otevře uprostřed.','La position du pointeur KDE est indisponible. Quick Assist s’ouvrira au centre.','KDE のポインター位置を取得できません。Quick Assist を中央に開きます。','La posizione del puntatore KDE non è disponibile. Quick Assist si aprirà al centro.'],
+['Quick-Assist-Position: {position}','Quick Assist position: {position}','Poloha Quick Assist: {position}','Position de Quick Assist : {position}','Quick Assist の位置：{position}','Posizione di Quick Assist: {position}'],
+['Fenstergröße konnte nicht geändert werden.','Could not resize the window.','Velikost okna nelze změnit.','Impossible de redimensionner la fenêtre.','ウィンドウのサイズを変更できませんでした。','Impossibile ridimensionare la finestra.'],
+['Fenstergröße ändern','Resize window','Změnit velikost okna','Redimensionner la fenêtre','ウィンドウのサイズを変更','Ridimensiona finestra'],
 ["Im Tray starten", "Start in tray", "Spustit v systémové liště", "Démarrer dans la zone de notification", "トレイに最小化して起動", "Avvia nell’area di notifica"],
 ["Gilt ab dem nächsten Programmstart. Das Hauptfenster lässt sich über das Tray-Menü öffnen.", "Applies the next time the application starts. Open the main window from the tray menu.", "Platí od příštího spuštění aplikace. Hlavní okno otevřete z nabídky systémové lišty.", "S’applique au prochain démarrage de l’application. Ouvrez la fenêtre principale depuis le menu de la zone de notification.", "次回のアプリ起動時から適用されます。トレイメニューからメインウィンドウを開けます。", "Si applica al prossimo avvio dell’applicazione. Apri la finestra principale dal menu dell’area di notifica."],
 

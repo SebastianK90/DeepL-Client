@@ -6,7 +6,7 @@ Independent desktop translation client for **Windows x64** and **Linux x64**, bu
 
 - Translation through DeepL API Free/Pro or an experimental web provider.
 - Write mode, contextual alternatives and dictionary lookup.
-- Quick Assist with a searchable language menu, copy and edit actions.
+- Resizable Quick Assist with a searchable language menu, copy and edit actions.
 - Local image OCR, screenshot area selection and file drag and drop.
 - PDF, DOCX and PPTX translation with local document parsing.
 - Microsoft Edge text-to-speech, history, favorites, tray controls and light/dark themes.
@@ -29,6 +29,12 @@ Quick Assist shortcuts:
 | KDE Plasma / Wayland | Select text and press the shortcut approved by the desktop portal, suggested **Ctrl+Alt+D**. Reads the PRIMARY selection; missing selection produces a message. |
 
 Wayland behavior depends on the compositor, portal and source application's selection support. On Windows and KDE Plasma, left-clicking the tray icon opens the main window; double-clicking also works. Right-click for the tray menu. Closing the main window hides it in the tray; use the tray's Quit action to exit.
+
+Resize Quick Assist using any edge or corner, including the grip at the bottom right. Its title bar shows the selected placement policy: pointer, centered, or remembered position. The language menu opens above or below according to available screen space, keeping its search field next to Quick Assist.
+
+On KDE Wayland with XWayland available, the app uses the X11 window backend so Quick Assist can remember its position and open near the pointer. The desktop session, selection shortcut and screenshot integration still use Wayland. An explicitly set `GDK_BACKEND` is respected; native Wayland does not support these global window-placement features.
+
+Pointer placement on KDE Wayland reads the compositor's current cursor through a temporary KWin script and converts the selected output's coordinates to the app's window coordinates. The query runs once per invocation and is removed afterward; no KWin settings are installed. If the query is unavailable, Quick Assist opens centered and reports the fallback.
 
 ## Document limitations
 

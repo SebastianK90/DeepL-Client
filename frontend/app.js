@@ -80,6 +80,11 @@ function syncLabels() {
   $('quick-edit-label').textContent=t('Bearbeiten in DeepL');
   $('quick-copy').querySelector('[data-button-label]').textContent=t('Kopieren');
   $('quick-replace').querySelector('[data-button-label]').textContent=t('Ersetzen');
+  const positionLabels={mouse_cursor:'Am Mauszeiger',centered:'Immer mittig zentrieren',remember_last:'Letzte Position merken'};
+  const positionPolicy=Object.hasOwn(positionLabels,config.quick_position_policy)?config.quick_position_policy:'remember_last';
+  const positionHint=t('Quick-Assist-Position: {position}',{position:t(positionLabels[positionPolicy])});
+  $('quick-position-indicator').title=positionHint;$('quick-position-indicator').setAttribute('aria-label',positionHint);
+  for(const icon of $('quick-position-indicator').querySelectorAll('[data-position-policy]'))icon.toggleAttribute('hidden',icon.dataset.positionPolicy!==positionPolicy);
   updateReplaceButton();
   $('mode-explanation').textContent = mainMode === 'write' ? t('Klarer formuliert. In deiner Sprache.') : t('In einer anderen Sprache auf den Punkt.');
   $('keyboard-hint').textContent=mainMode==='write'?t('Text wird automatisch verbessert.'):t('Text wird automatisch übersetzt.');
@@ -296,6 +301,7 @@ $('quick-close').onclick = ()=>{quickGeneration++;quickOpenGeneration++;pendingQ
 $('quick-main').onclick = ()=>invoke('open_main',{request:{text:quickOriginal,source:quickMode==='write'?'AUTO':config.source,target:quickMode==='write'?config.write_language:config.target,style:quickMode==='write'?effectiveStyle():'default'},translation:quickResult,mode:quickMode,settings:false}).catch(e=>notify(errorText(e)));
 $('quick-replace').onclick=async()=>{if(!quickResult||!quickCanReplace||quickReplacing)return;const session=quickSessionId;quickReplacing=true;updateReplaceButton();try{await invoke('replace_selection',{session,displayed:quickResult.text});if(session===quickSessionId)quickCanReplace=false;}catch(e){notify(errorText(e));}finally{quickReplacing=false;updateReplaceButton();}};
 $('quick').querySelector('[data-quick-drag]').addEventListener('mousedown',e=>{if(e.button===0 && !e.target.closest('button,a,input,select') && native){e.preventDefault();invoke('start_quick_drag',{grabX:e.clientX,grabY:e.clientY}).catch(err=>notify(errorText(err)));}});
+for(const handle of $('quick').querySelectorAll('[data-quick-resize]'))handle.addEventListener('mousedown',e=>{if(e.button===0&&native){e.preventDefault();e.stopPropagation();invoke('start_quick_resize',{edge:handle.dataset.quickResize}).catch(err=>notify(errorText(err)));}});
 document.addEventListener('keydown',e=> {if(e.key==='Escape' && isOverlay && !document.querySelector('dialog[open]')){if(quickLanguageOpen)invoke('close_language_popup').catch(()=>{});else invoke('hide_quick').catch(()=>{});}if(e.ctrlKey && e.key==='Enter' && !isOverlay && !document.querySelector('dialog[open]')){e.preventDefault();doTranslate();}});
 
 function loadTranslation(payload) {const [request,translation,mode]=payload;cancelMain();generation++;mainMode=mode||'translate';if(mainMode==='write'){config.write_language=request.target;config.write_style=selectedStyle(request.style);}else{config.source=request.source;config.target=request.target;}$('source-text').value=request.text;showResult(translation);syncLabels();count();setView('translate');if(!translation)scheduleMain(true);}

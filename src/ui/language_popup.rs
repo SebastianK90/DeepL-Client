@@ -112,7 +112,7 @@ pub(super) async fn open_language_popup(
         return Err("Ungültiger Ziehbereich.".into());
     }
     #[cfg(target_os = "linux")]
-    if std::env::var_os("WAYLAND_DISPLAY").is_some()
+    if super::linux_backend::uses_native_language_popover(&window).await?
         && let Some(choices) = choices
     {
         return super::wayland_language::open(

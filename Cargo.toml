@@ -1,6 +1,6 @@
 [package]
 name = "deepl-client"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "MIT"
 description = "Independent Windows and Linux desktop translation client with Quick Assist, local OCR and document translation"
@@ -34,6 +34,7 @@ zip = { version = "9.1", default-features = false, features = ["deflate-flate2-z
 pdfium-render = { version = "0.9.4", default-features = false, features = ["pdfium_7881", "thread_safe"] }
 ttf-parser = "0.25"
 tauri = { version = "2", features = ["tray-icon"] }
+tauri-runtime = "2"
 tempfile = "3"
 thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
