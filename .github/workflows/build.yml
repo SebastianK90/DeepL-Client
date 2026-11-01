@@ -1,0 +1,81 @@
+name: Build and test
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/setup-pdfium.cjs
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked --workspace --no-default-features --bins --lib
+      - name: PDF layout regressions (local synthetic fixtures only)
+        run: cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private
+      - run: node scripts/check-i18n.mjs
+      - run: cargo build --release --locked --target x86_64-pc-windows-msvc
+      - name: Reject sidecar loader or CRT dependencies
+        run: node scripts/verify-windows-exe.cjs target/x86_64-pc-windows-msvc/release/deepl-client.exe
+      - name: Verify embedded PDF engine from an isolated EXE-only folder
+        shell: pwsh
+        run: |
+          $isolated = Join-Path $env:RUNNER_TEMP ('deepl-single-exe-' + [guid]::NewGuid())
+          New-Item -ItemType Directory -Path $isolated | Out-Null
+          Copy-Item -LiteralPath target/x86_64-pc-windows-msvc/release/deepl-client.exe -Destination $isolated
+          Push-Location $isolated
+          try {
+            $process = Start-Process -FilePath (Join-Path $isolated 'deepl-client.exe') -ArgumentList '--verify-pdf-engine' -WorkingDirectory $isolated -WindowStyle Hidden -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw 'Embedded PDF self-test failed.' }
+          } finally { Pop-Location }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeepL-Client-Windows
+          path: target/x86_64-pc-windows-msvc/release/deepl-client.exe
+          if-no-files-found: error
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/setup-pdfium.cjs
+      - name: Linux build and bundled runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libxdo-dev libfuse2 file \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
+            tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-fra tesseract-ocr-ces tesseract-ocr-ita tesseract-ocr-jpn fonts-dejavu-core
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Tests including Linux OCR pipe, timeout, output cap and process cleanup
+        run: cargo test --locked --workspace --no-default-features --bins --lib
+      - name: PDF layout regressions (local synthetic fixtures only)
+        run: cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private
+      - run: node scripts/check-i18n.mjs
+      - name: Verify embedded PDF engine in Linux release binary
+        run: |
+          mkdir -p .tools
+          cargo test --locked pdf_roundtrip_preserves -- --ignored
+          cargo build --release --locked
+          target/release/deepl-client --verify-pdf-engine
+      - name: Install Tauri packager
+        run: cargo install tauri-cli --version '^2' --locked
+      - name: Build and inspect single-file AppImage with bundled OCR and media
+        run: bash scripts/build-appimage.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeepL-Client-Linux-AppImage
+          path: target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
