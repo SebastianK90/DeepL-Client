@@ -55,6 +55,7 @@ pub struct Config {
     pub theme: String,
     pub hotkey_ms: u64,
     pub history_enabled: bool,
+    pub start_in_tray: bool,
     pub instance_id: uuid::Uuid,
     pub quick_mode_policy: QuickModePolicy,
     pub last_mode: WorkMode,
@@ -74,6 +75,7 @@ impl Default for Config {
             theme: "light".into(),
             hotkey_ms: 350,
             history_enabled: true,
+            start_in_tray: true,
             instance_id: uuid::Uuid::new_v4(),
             quick_mode_policy: QuickModePolicy::RememberLast,
             last_mode: WorkMode::Translate,
@@ -193,6 +195,26 @@ pub fn key_entry() -> Result<keyring::Entry> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tray_start_defaults_on_for_existing_configs_and_persists_an_opt_out() {
+        for config in [
+            Config::default(),
+            toml::from_str::<Config>("provider = 'web'").unwrap(),
+        ] {
+            assert_eq!(serde_json::to_value(config).unwrap()["start_in_tray"], true);
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let store = Storage {
+            config: dir.path().join("config.toml"),
+            history: dir.path().join("history.json"),
+        };
+        let config: Config = toml::from_str("start_in_tray = false").unwrap();
+        store.save_config(&config).unwrap();
+        assert_eq!(
+            serde_json::to_value(store.load_config().unwrap()).unwrap()["start_in_tray"],
+            false
+        );
+    }
     #[test]
     fn selected_style_defaults_to_simple_and_migrates_legacy_unselected() {
         use super::super::WritingStyle;

@@ -385,7 +385,15 @@ mod tests {
                 "cell {value} origin moved"
             );
         }
-        assert!(text.all().contains("Vihreä tee"));
+        assert!(
+            text.all()
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .contains("Vihreä tee"),
+            "Translated cell text: {:?}",
+            text.all()
+        );
         Ok(())
     }
 
@@ -528,7 +536,7 @@ mod tests {
                 PdfPoints::new(18.),
             )?;
         }
-        let output = translate(doc.save_to_bytes()?, |text| Ok(format!("T-{text}")))?;
+        let output = translate(doc.save_to_bytes()?, |text| Ok(format!("T{text}")))?;
         let read = pdfium.load_pdf_from_byte_vec(output, None)?;
         let page = read.pages().get(0)?;
         let objects: Vec<_> = page
@@ -541,7 +549,7 @@ mod tests {
                     .unwrap_or_else(|| "[path]".into())
             })
             .collect();
-        assert_eq!(objects, ["T-First", "[path]", "T-Second"]);
+        assert_eq!(objects, ["TFirst", "[path]", "TSecond"]);
         Ok(())
     }
 

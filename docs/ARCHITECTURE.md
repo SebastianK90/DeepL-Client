@@ -13,6 +13,6 @@
 - `scripts/build-appimage.sh`: Linux runtime bundling and package verification.
 - `.cargo/config.toml` and `build.rs`: Windows static CRT/loader integration.
 
-Linux uses GTK for native file drops and the Quick Assist language popover, desktop portals on Wayland, Tesseract for OCR, and system/packaged media plugins. Windows uses native Windows APIs, Windows OCR and WebView2. Native capabilities differ by desktop and must be tested on each platform.
+Linux uses GTK for native file drops and the Quick Assist language popover, a GIO bridge for primary activation of its existing StatusNotifierItem (Tauri does not emit Linux tray click events), desktop portals on Wayland, Tesseract for OCR, and system/packaged media plugins. Windows uses native Windows APIs, Windows OCR and WebView2. Native capabilities differ by desktop and must be tested on each platform.
 
 Tauri's frontend capability boundary, content security policy and per-window command checks constrain access to native operations. Long-running document and OCR paths have cancellation, size and concurrency limits. See the source and tests for the precise behavior; this is not a security certification.

@@ -2,6 +2,9 @@
 // Columns: German source, English, Czech, French, Japanese, Italian.
 export const locales = {en:'English',de:'Deutsch',cs:'Čeština',fr:'Français',ja:'日本語',it:'Italiano'};
 export const messages = [
+["Im Tray starten", "Start in tray", "Spustit v systémové liště", "Démarrer dans la zone de notification", "トレイに最小化して起動", "Avvia nell’area di notifica"],
+["Gilt ab dem nächsten Programmstart. Das Hauptfenster lässt sich über das Tray-Menü öffnen.", "Applies the next time the application starts. Open the main window from the tray menu.", "Platí od příštího spuštění aplikace. Hlavní okno otevřete z nabídky systémové lišty.", "S’applique au prochain démarrage de l’application. Ouvrez la fenêtre principale depuis le menu de la zone de notification.", "次回のアプリ起動時から適用されます。トレイメニューからメインウィンドウを開けます。", "Si applica al prossimo avvio dell’applicazione. Apri la finestra principale dal menu dell’area di notifica."],
+
 ["Wayland: Ctrl+Alt+D übersetzt die Textmarkierung (PRIMARY).", "Wayland: Ctrl+Alt+D translates selected text (PRIMARY).", "Wayland: Ctrl+Alt+D přeloží označený text (PRIMARY).", "Wayland : Ctrl+Alt+D traduit le texte sélectionné (PRIMARY).", "Wayland: Ctrl+Alt+Dで選択したテキストを翻訳します（PRIMARY）。", "Wayland: Ctrl+Alt+D traduce il testo selezionato (PRIMARY)."],
 ["Keine Textmarkierung verfügbar. Bitte Text in der Quellanwendung markieren.", "No text selection available. Select text in the source application.", "Není dostupný označený text. Označte text ve zdrojové aplikaci.", "Aucune sélection disponible. Sélectionnez du texte dans l’application source.", "選択したテキストがありません。元のアプリでテキストを選択してください。", "Nessuna selezione disponibile. Seleziona il testo nell’applicazione di origine."],
 ["Die Textmarkierung enthält mehr als 5.000 Zeichen.", "The text selection contains more than 5,000 characters.", "Označený text obsahuje více než 5 000 znaků.", "La sélection contient plus de 5 000 caractères.", "選択したテキストが5,000文字を超えています。", "Il testo selezionato contiene più di 5.000 caratteri."],
@@ -205,7 +208,7 @@ export const messages = [
 ['Dunkel','Dark','Tmavý','Sombre','ダーク','Scuro'],
 ['System','System','Systém','Système','システム設定','Sistema'],
 ['Doppelt kopieren','Double-copy timing','Interval dvojího kopírování','Délai du double copier','2 回コピーの間隔','Intervallo doppia copia'],
-['Startmodus bei Strg+C+C','Startup mode for Ctrl+C+C','Výchozí režim pro Ctrl+C+C','Mode de démarrage avec Ctrl+C+C','Ctrl+C+C で開くモード','Modalità iniziale con Ctrl+C+C'],
+['Startmodus für Quick Assist','Startup mode for Quick Assist','Výchozí režim pro Quick Assist','Mode de démarrage de Quick Assist','Quick Assist の起動モード','Modalità iniziale di Quick Assist'],
 ['Zuletzt verwendeten Modus merken','Remember the last mode','Pamatovat si poslední režim','Mémoriser le dernier mode','前回のモードを記憶','Ricorda l’ultima modalità'],
 ['Immer Translate','Always Translate','Vždy překlad','Toujours Traduire','常に翻訳','Sempre Traduci'],
 ['Immer Write','Always Write','Vždy Write','Toujours Write','常に Write','Sempre Write'],

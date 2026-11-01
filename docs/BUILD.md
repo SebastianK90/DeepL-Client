@@ -58,7 +58,7 @@ After PDFium setup and system dependencies:
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked --workspace --no-default-features --bins --lib
-cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private
+cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private --test-threads=1
 node scripts/check-i18n.mjs
 node scripts/desktop-entry-check.cjs
 ```

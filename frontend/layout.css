@@ -20,3 +20,12 @@
 .app-shell .text-panel textarea{overflow:auto}
 .app-shell .app-topbar,.app-shell .context-strip{flex-shrink:0}
 .app-shell .primary-button{flex-shrink:0;white-space:nowrap}
+
+/* Accessible startup preference; the native checkbox retains keyboard support. */
+.startup-toggle{position:relative;display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:18px}
+.startup-toggle input{position:absolute;opacity:0;width:1px;height:1px}
+.switch-track{display:inline-block;flex:0 0 36px;width:36px;height:20px;border-radius:12px;background:var(--line);transition:background .15s}
+.switch-track::after{content:"";display:block;width:16px;height:16px;margin:2px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0003;transition:transform .15s}
+.startup-toggle input:checked+.switch-track{background:var(--green)}
+.startup-toggle input:checked+.switch-track::after{transform:translateX(16px)}
+.startup-toggle input:focus-visible+.switch-track{outline:2px solid var(--green);outline-offset:3px}

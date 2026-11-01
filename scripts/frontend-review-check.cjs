@@ -8,14 +8,15 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
  try{
   browser=await chromium.launch({headless:true,...(process.platform==='win32'?{channel:'msedge'}:{})});
   const failures=[];
-  for(const scenario of ['image-handoff','clipboard-handoff','clipboard-debounce','clipboard-error','startup-load']){
+  for(const scenario of ['image-handoff','clipboard-handoff','clipboard-debounce','clipboard-error','startup-load','tray-setting']){
    const page=await browser.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
    try{
     await page.addInitScript(scenario=>{
      window.listeners={};window.calls=[];
      window.__TAURI__={event:{listen:async(name,handler)=>window.listeners[name]=handler},core:{invoke:async(name,args={})=>{
       window.calls.push({name,args});
-      if(name==='bootstrap'){if(scenario==='startup-load')await new Promise(resolve=>window.resolveBootstrap=resolve);return{config:{provider:'web',source:'DE',target:'EN-GB',write_language:'DE',write_style:'simple',ui_language:'de',theme:'light'},history:[],hotkey_status:'test',key_present:false};}
+      if(name==='bootstrap'){if(scenario==='startup-load')await new Promise(resolve=>window.resolveBootstrap=resolve);return{config:{provider:'web',source:'DE',target:'EN-GB',write_language:'DE',write_style:'simple',ui_language:'de',theme:'light',...(scenario==='tray-setting'?{start_in_tray:localStorage.getItem('tray-setting')!=='false'}:{})},history:[],hotkey_status:'test',key_present:false};}
+      if(name==='save_settings'&&scenario==='tray-setting'){localStorage.setItem('tray-setting',String(args.config.start_in_tray));return;}
       if(name==='begin_speech_session')return 1;
       if(name==='recognize_image')return 'Older image text';
       if(name==='remember_mode'&&window.deferRemember)return new Promise(resolve=>window.resolveRemember=resolve);
@@ -56,6 +57,19 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
      assert.equal(await page.locator('#result-text').inputValue(),'Traduction déjà prête','Loading during bootstrap must preserve the supplied result and target');
      assert.equal(await page.locator('#target-language').innerText(),'Französisch⌄');
      assert.equal(await page.evaluate(()=>window.calls.filter(call=>call.name==='translate').length),0,'A supplied translation must not be submitted again at startup');
+    }
+    if(scenario==='tray-setting'){
+     const openSettings=async()=>{await page.locator('#app-menu-toggle').click();await page.locator('#settings-open').click();};
+     await openSettings();const toggle=page.getByRole('switch',{name:'Im Tray starten',exact:true});
+     assert.equal(await toggle.isChecked(),true,'Tray startup is enabled by default');
+     await toggle.focus();await page.keyboard.press('Space');
+     await page.locator('#settings-form button[type="submit"]').click();
+     await page.waitForFunction(()=>window.calls.some(c=>c.name==='save_settings'&&c.args.config.start_in_tray===false));
+     await page.reload();await page.waitForFunction(()=>window.calls.some(c=>c.name==='bootstrap'));
+     await openSettings();assert.equal(await toggle.isChecked(),false,'Opt-out survives reloading');
+     await toggle.check();await page.locator('#settings-form button[type="submit"]').click();
+     await openSettings();assert.equal(await toggle.isChecked(),true);
+     await toggle.scrollIntoViewIfNeeded();fs.mkdirSync('.tools/start-in-tray',{recursive:true});await page.screenshot({path:'.tools/start-in-tray/settings.png'});
     }
     assert.deepEqual(errors,[]);console.log(`${scenario}: passed`);
    }catch(error){failures.push(`${scenario}: ${error.message}`);}finally{await page.close();}

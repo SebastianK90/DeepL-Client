@@ -18,8 +18,8 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked --workspace --no-default-features --bins --lib
-      - name: PDF layout regressions (local synthetic fixtures only)
-        run: cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private
+      - name: PDF layout regressions (serial native engine; synthetic fixtures only)
+        run: cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private --test-threads=1
       - run: node scripts/check-i18n.mjs
       - run: cargo build --release --locked --target x86_64-pc-windows-msvc
       - name: Reject sidecar loader or CRT dependencies
@@ -61,8 +61,8 @@ jobs:
       - run: cargo clippy --locked --all-targets -- -D warnings
       - name: Tests including Linux OCR pipe, timeout, output cap and process cleanup
         run: cargo test --locked --workspace --no-default-features --bins --lib
-      - name: PDF layout regressions (local synthetic fixtures only)
-        run: cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private
+      - name: PDF layout regressions (serial native engine; synthetic fixtures only)
+        run: cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private --test-threads=1
       - run: node scripts/check-i18n.mjs
       - name: Verify embedded PDF engine in Linux release binary
         run: |

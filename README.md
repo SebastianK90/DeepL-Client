@@ -15,7 +15,9 @@ Independent desktop translation client for **Windows x64** and **Linux x64**, bu
 
 ## Getting started
 
-Build from source using the [Windows and Linux instructions](docs/BUILD.md). There are no prebuilt binaries in this source repository. Windows builds use MSVC and embed the WebView2 loader and C runtime; the **Microsoft Edge WebView2 Runtime** must still be installed on the system.
+Download the Windows EXE or Linux AppImage from [Releases](https://github.com/SebastianK90/DeepL-Client/releases), or build from source using the [Windows and Linux instructions](docs/BUILD.md). Windows builds use MSVC and embed the WebView2 loader and C runtime; the **Microsoft Edge WebView2 Runtime** must still be installed on the system.
+
+**The app starts in the tray by default.** Open the main window from the tray menu. Disable **Start in tray** in Settings to show the main window on future launches. The preference takes effect on the next application start.
 
 Choose a provider in Settings. Official API translation requires your own DeepL API key, stored in the operating system's credential store. The experimental web provider requires no API key but uses an undocumented service interface and may stop working. Write availability depends on the selected service and account permissions.
 
@@ -26,7 +28,7 @@ Quick Assist shortcuts:
 | Windows / Linux X11 | Select text, hold Ctrl and press C twice. Uses clipboard text. |
 | KDE Plasma / Wayland | Select text and press the shortcut approved by the desktop portal, suggested **Ctrl+Alt+D**. Reads the PRIMARY selection; missing selection produces a message. |
 
-Wayland behavior depends on the compositor, portal and source application's selection support. Closing the main window hides it in the tray; use the tray's Quit action to exit.
+Wayland behavior depends on the compositor, portal and source application's selection support. On Windows and KDE Plasma, left-clicking the tray icon opens the main window; double-clicking also works. Right-click for the tray menu. Closing the main window hides it in the tray; use the tray's Quit action to exit.
 
 ## Document limitations
 

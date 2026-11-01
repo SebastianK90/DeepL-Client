@@ -27,6 +27,9 @@ mod lookup_controls;
 mod quick_reader;
 mod speech_controls;
 #[cfg(target_os = "linux")]
+mod tray_activation;
+mod tray_click;
+#[cfg(target_os = "linux")]
 mod wayland_language;
 mod window_controls;
 
@@ -789,6 +792,7 @@ pub fn run() -> Result<()> {
     };
     let storage = Storage::discover()?;
     let config = storage.load_config()?;
+    let start_in_tray = config.start_in_tray;
     let entries = history::load(&storage)?;
     let hotkey_ms = config.hotkey_ms;
     let mode = config.provider;
@@ -874,7 +878,7 @@ pub fn run() -> Result<()> {
                 );
                 main.set_size(tauri::PhysicalSize::new(width, height))?;
             }
-            use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+            use tauri::tray::TrayIconBuilder;
             let language = app
                 .state::<AppState>()
                 .config
@@ -891,13 +895,7 @@ pub fn run() -> Result<()> {
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray, event| {
-                    if matches!(
-                        event,
-                        TrayIconEvent::DoubleClick {
-                            button: MouseButton::Left,
-                            ..
-                        }
-                    ) {
+                    if tray_click::opens_main(&event) {
                         show_main(tray.app_handle());
                     }
                 })
@@ -908,9 +906,16 @@ pub fn run() -> Result<()> {
                     _ => {}
                 })
                 .build(app)?;
+            #[cfg(target_os = "linux")]
+            tray_activation::install(app.handle())?;
             update_tray(app.handle(), mode);
             language_popup::setup(app.handle())?;
             crate::hotkey::start(app.handle().clone(), hotkey_ms);
+            // The main window is created hidden to avoid flashing before the
+            // saved startup preference and tray initialization are applied.
+            if !start_in_tray {
+                show_main(app.handle());
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
