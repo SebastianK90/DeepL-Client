@@ -1,0 +1,17 @@
+# The actual storage location is resolved through directories::ProjectDirs.
+# API keys belong exclusively in the operating system's credential store.
+provider = "api_free" # api_free | api_pro | web
+source = "AUTO"
+target = "DE"
+theme = "light" # light | dark | system
+ui_language = "de" # en | de | cs | fr | ja | it; independent of text languages
+hotkey_ms = 350 # 300 to 400; changes take effect after restarting
+history_enabled = true
+quick_mode_policy = "remember_last" # remember_last | always_translate | always_write
+quick_position_policy = "remember_last" # remember_last | mouse_cursor | centered
+# quick_position = { x = 160, y = 120 } # automatically saved physical screen coordinates
+last_mode = "translate" # translate | write; saved when the mode changes
+write_language = "DE" # independent of the Translate source/target
+write_style = "simple" # simple | business | academic | casual; changes are persisted
+# A random instance ID is generated and persisted on the first launch.
+instance_id = "00000000-0000-4000-8000-000000000001"

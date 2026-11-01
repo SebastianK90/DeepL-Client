@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "local-windows",
+  "description": "Only local main and quick windows can receive events.",
+  "windows": ["main", "quick", "quick-language"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

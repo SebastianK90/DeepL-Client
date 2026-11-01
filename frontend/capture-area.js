@@ -1,0 +1,12 @@
+const $=id=>document.getElementById(id),invoke=window.__TAURI__.core.invoke;
+let frame=null,scale=1,left=0,top=0,anchor=null,down=false,second=false,finished=false,cancelPending=false;
+function layout(){if(!frame)return;scale=Math.min(innerWidth/frame.width,innerHeight/frame.height);left=(innerWidth-frame.width*scale)/2;top=(innerHeight-frame.height*scale)/2;Object.assign($('screen').style,{left:left+'px',top:top+'px',width:frame.width*scale+'px',height:frame.height*scale+'px'});anchor=null;down=false;second=false;$('area').hidden=true;$('shade').hidden=false;}
+function point(event){return{x:Math.max(0,Math.min(frame.width,(event.clientX-left)/scale)),y:Math.max(0,Math.min(frame.height,(event.clientY-top)/scale))};}
+function region(end){const x=Math.floor(Math.min(anchor.x,end.x)),y=Math.floor(Math.min(anchor.y,end.y));return{x,y,width:Math.floor(Math.max(anchor.x,end.x))-x,height:Math.floor(Math.max(anchor.y,end.y))-y};}
+function draw(end){const r=region(end);$('shade').hidden=true;$('area').hidden=false;Object.assign($('area').style,{left:left+r.x*scale+'px',top:top+r.y*scale+'px',width:r.width*scale+'px',height:r.height*scale+'px'});}
+async function finish(region){if(finished)return;if(!frame){cancelPending=true;return;}finished=true;try{await invoke('capture_area_finish',{token:frame.token,region});}catch(e){finished=false;$('hint').textContent=String(e);}}
+document.addEventListener('pointerdown',e=>{if(!frame||finished)return;if(e.button===2){void finish(null);return;}if(e.button!==0)return;const p=point(e);if(anchor&&second){const r=region(p);if(r.width>=3&&r.height>=3)void finish(r);return;}anchor=p;down=true;second=false;});
+document.addEventListener('pointermove',e=>{if(anchor&&!finished)draw(point(e));});
+document.addEventListener('pointerup',e=>{if(!down||e.button!==0||finished)return;down=false;const r=region(point(e));if(r.width>=3&&r.height>=3)void finish(r);else second=true;});
+document.addEventListener('contextmenu',e=>{e.preventDefault();void finish(null);});document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();void finish(null);}});window.addEventListener('resize',layout);
+try{frame=await invoke('capture_area_state');$('screen').src='data:image/png;base64,'+frame.encoded;await $('screen').decode();$('hint').textContent=frame.hint;layout();if(cancelPending)await finish(null);}catch(e){$('hint').textContent=String(e);}
