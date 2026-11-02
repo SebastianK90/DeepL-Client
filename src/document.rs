@@ -2,7 +2,9 @@
 use anyhow::{Result, bail, ensure};
 use std::io::{Cursor, Read, Write};
 
+mod office_security;
 pub mod pdf;
+pub(crate) mod pdf_worker;
 pub const MAX_BYTES: usize = 32 * 1024 * 1024;
 const MAX_EXPANDED: u64 = 128 * 1024 * 1024;
 const MAX_XML_NODES: usize = 250_000;
@@ -76,7 +78,7 @@ pub fn translate_cancellable(
     check()?;
     ensure!(bytes.len() <= MAX_BYTES, "Maximal 32 MB pro Dokument.");
     match extension {
-        "pdf" => pdf::translate_cancellable(bytes, translator, check),
+        "pdf" => pdf_worker::translate(bytes, translator, check),
         "docx" | "pptx" => office(bytes, extension, &mut translator, check),
         _ => bail!("Bitte PDF, DOCX oder PPTX auswählen."),
     }
@@ -104,6 +106,7 @@ fn office(
         archive.index_for_name(required).is_some(),
         "Dateiinhalt und Dateityp stimmen nicht überein."
     );
+    office_security::validate(&mut archive, ext, check)?;
     let mut output = zip::ZipWriter::new(LimitedOutput {
         inner: Cursor::new(Vec::new()),
         budget: budget.clone(),
@@ -670,6 +673,19 @@ mod tests {
                 zip.start_file(name, zip::write::SimpleFileOptions::default())?;
                 zip.write_all(data.as_bytes())?;
             }
+            let kind = if ext == "docx" {
+                "wordprocessingml.document"
+            } else {
+                "presentationml.presentation"
+            };
+            zip.start_file(
+                "[Content_Types].xml",
+                zip::write::SimpleFileOptions::default(),
+            )?;
+            write!(
+                zip,
+                "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Override PartName=\"/{main}\" ContentType=\"application/vnd.openxmlformats-officedocument.{kind}.main+xml\"/></Types>"
+            )?;
             inputs.push((ext, zip.finish()?.into_inner()));
         }
         let runtime = tokio::runtime::Handle::current();
@@ -731,6 +747,19 @@ mod tests {
                 zip.start_file(name, zip::write::SimpleFileOptions::default())?;
                 zip.write_all(data)?;
             }
+            let (part, kind) = if ext == "docx" {
+                ("word/document.xml", "wordprocessingml.document")
+            } else {
+                ("ppt/presentation.xml", "presentationml.presentation")
+            };
+            zip.start_file(
+                "[Content_Types].xml",
+                zip::write::SimpleFileOptions::default(),
+            )?;
+            write!(
+                zip,
+                "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Override PartName=\"/{part}\" ContentType=\"application/vnd.openxmlformats-officedocument.{kind}.main+xml\"/></Types>"
+            )?;
             let input = zip.finish()?.into_inner();
             let output = translate(input, ext, |s| {
                 assert_eq!(s, "Hello world");
@@ -791,5 +820,232 @@ mod tests {
                 .unwrap()
                 .contains("こんにちは 世界")
         );
+    }
+}
+
+#[cfg(test)]
+mod security_regressions {
+    use super::*;
+    fn package(ext: &str, extra: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        let (main, kind) = if ext == "docx" {
+            ("word/document.xml", "wordprocessingml.document")
+        } else {
+            ("ppt/presentation.xml", "presentationml.presentation")
+        };
+        let types = format!(
+            r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/{main}" ContentType="application/vnd.openxmlformats-officedocument.{kind}.main+xml"/></Types>"#
+        );
+        let xml = r#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:t>Hello</w:t></w:r></w:p></w:document>"#;
+        for (name, data) in [
+            ("[Content_Types].xml", types.as_bytes()),
+            (main, xml.as_bytes()),
+        ]
+        .into_iter()
+        .chain(extra.iter().copied())
+        {
+            zip.start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(data).unwrap();
+        }
+        zip.finish().unwrap().into_inner()
+    }
+    #[test]
+    fn rejects_unsafe_office_parts_and_paths_before_translating() {
+        for name in [
+            "word/vbaProject.bin",
+            "WORD/VBAPROJECT.BIN",
+            "word/activeX/activeX1.xml",
+            "word/embeddings/oleObject1.bin",
+            "customUI/customUI.xml",
+            "word/webExtensions/webExtension1.xml",
+            "../outside.txt",
+            "/absolute.txt",
+            "C:/outside.txt",
+            "word\\evil.xml",
+            "word/../alias.xml",
+            "word//alias.xml",
+            "word/%2e%2e/alias.xml",
+            "word/%2Falias.xml",
+            "WORD/DOCUMENT.XML",
+            "word/document.xml/",
+        ] {
+            let mut calls = 0;
+            let result = translate(package("docx", &[(name, b"inert fixture")]), "docx", |_| {
+                calls += 1;
+                Ok("Hallo".into())
+            });
+            assert!(result.is_err(), "accepted {name}");
+            assert_eq!(calls, 0, "sent text before rejecting {name}");
+        }
+    }
+    #[test]
+    fn rejects_dangerous_relationships_and_wrong_main_types_before_translating() {
+        for relationship in [
+            r#"<Relationship Id="r" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate" TargetMode="External" Target="https://example.invalid/a.dotm"/>"#,
+            r#"<Relationship Id="r" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject" Target="embeddings/a.bin"/>"#,
+            r#"<Relationship Id="r" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" TargetMode="External" Target="file:///etc/passwd"/>"#,
+            r#"<Relationship Id="r" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" TargetMode="External" Target="javascript:alert(1)"/>"#,
+            r#"<Relationship Id="r" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/attached&#84;emplate" Target="template.dotx"/>"#,
+            r#"<Relationship Id="r" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../../../../outside.png"/>"#,
+        ] {
+            let rels = format!(
+                r#"<p:Relationships xmlns:p="http://schemas.openxmlformats.org/package/2006/relationships" xmlns="http://schemas.openxmlformats.org/package/2006/relationships">{relationship}</p:Relationships>"#
+            );
+            let mut calls = 0;
+            assert!(
+                translate(
+                    package("docx", &[("word/_rels/document.xml.rels", rels.as_bytes())]),
+                    "docx",
+                    |_| {
+                        calls += 1;
+                        Ok("Hallo".into())
+                    }
+                )
+                .is_err(),
+                "accepted {relationship}"
+            );
+            assert_eq!(calls, 0);
+        }
+        let mut zip = zip::ZipArchive::new(Cursor::new(package("pptx", &[]))).unwrap();
+        let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for i in 0..zip.len() {
+            let file = zip.by_index(i).unwrap();
+            out.raw_copy_file(file).unwrap();
+        }
+        // The PPTX main part must not pass as a DOCX container.
+        assert!(
+            translate(
+                out.finish().unwrap().into_inner(),
+                "docx",
+                |_| unreachable!()
+            )
+            .is_err()
+        );
+    }
+    #[test]
+    fn rejects_dde_and_imported_html_before_translating() {
+        let xml = br#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p><w:r><w:fldChar w:fldCharType="begin"/><w:instrText>DDE</w:instrText></w:r><w:r><w:instrText>AUTO fixture inert</w:instrText><w:fldChar w:fldCharType="end"/></w:r><w:r><w:t>Hello</w:t></w:r></w:p></w:document>"#;
+        let mut archive = zip::ZipArchive::new(Cursor::new(package("docx", &[]))).unwrap();
+        let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for i in 0..archive.len() {
+            let file = archive.by_index(i).unwrap();
+            if file.name().unwrap() == "word/document.xml" {
+                out.start_file(
+                    "word/document.xml",
+                    zip::write::SimpleFileOptions::default(),
+                )
+                .unwrap();
+                out.write_all(xml).unwrap();
+            } else {
+                out.raw_copy_file(file).unwrap();
+            }
+        }
+        let mut calls = 0;
+        assert!(
+            translate(out.finish().unwrap().into_inner(), "docx", |_| {
+                calls += 1;
+                Ok("Hallo".into())
+            })
+            .is_err()
+        );
+        assert_eq!(calls, 0);
+        let rels = br#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="a" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="import.html"/></Relationships>"#;
+        assert!(
+            translate(
+                package("docx", &[("word/_rels/document.xml.rels", rels)]),
+                "docx",
+                |_| unreachable!()
+            )
+            .is_err()
+        );
+    }
+    fn replace_part(input: Vec<u8>, part: &str, bytes: &[u8]) -> Vec<u8> {
+        let mut archive = zip::ZipArchive::new(Cursor::new(input)).unwrap();
+        let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for i in 0..archive.len() {
+            let file = archive.by_index(i).unwrap();
+            if file.name().unwrap() == part {
+                out.start_file(part, zip::write::SimpleFileOptions::default())
+                    .unwrap();
+                out.write_all(bytes).unwrap();
+            } else {
+                out.raw_copy_file(file).unwrap();
+            }
+        }
+        out.finish().unwrap().into_inner()
+    }
+    #[test]
+    fn rejects_field_instructions_in_relocated_word_parts() {
+        let header=br#"<x:hdr xmlns:x="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><x:fldSimple x:instr="DDEAUTO inert fixture"/></x:hdr>"#;
+        let rels=br#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="h" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="../custom/header.dat"/></Relationships>"#;
+        let types=br#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/custom/header.dat" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/></Types>"#;
+        let input = replace_part(
+            package(
+                "docx",
+                &[
+                    ("custom/header.dat", header),
+                    ("word/_rels/document.xml.rels", rels),
+                ],
+            ),
+            "[Content_Types].xml",
+            types,
+        );
+        let mut calls = 0;
+        assert!(
+            translate(input, "docx", |_| {
+                calls += 1;
+                Ok("Hallo".into())
+            })
+            .is_err()
+        );
+        assert_eq!(calls, 0);
+    }
+    #[test]
+    fn preserves_bookmark_fields_and_page_numbers() {
+        let fields=br#"<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:fldSimple w:instr='HYPERLINK \l "_Toc123"'/><w:fldSimple w:instr='HYPERLINK "https://example.invalid/" \o "Normal link"'/><w:r><w:fldChar w:fldCharType="begin"/><w:instrText> PAGE </w:instrText><w:fldChar w:fldCharType="separate"/><w:t>1</w:t><w:fldChar w:fldCharType="end"/></w:r></w:hdr>"#;
+        let output = translate(
+            package("docx", &[("word/header1.xml", fields)]),
+            "docx",
+            |_| Ok("Hallo".into()),
+        )
+        .unwrap();
+        let mut archive = zip::ZipArchive::new(Cursor::new(output)).unwrap();
+        let mut actual = Vec::new();
+        archive
+            .by_name("word/header1.xml")
+            .unwrap()
+            .read_to_end(&mut actual)
+            .unwrap();
+        assert_eq!(actual, fields);
+    }
+    #[test]
+    fn preserves_safe_hyperlinks_images_and_formatting() {
+        let rels = br#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="web" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" TargetMode="External" Target="https://example.invalid/?a=1&amp;b=2"/><Relationship Id="mail" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" TargetMode="External" Target="mailto:fixture@example.invalid"/><Relationship Id="img" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/></Relationships>"#;
+        let output = translate(
+            package(
+                "docx",
+                &[
+                    ("word/_rels/document.xml.rels", rels),
+                    ("word/media/image1.png", b"inert image fixture"),
+                ],
+            ),
+            "docx",
+            |_| Ok("Hallo".into()),
+        )
+        .unwrap();
+        let mut zip = zip::ZipArchive::new(Cursor::new(output)).unwrap();
+        let mut actual = Vec::new();
+        zip.by_name("word/_rels/document.xml.rels")
+            .unwrap()
+            .read_to_end(&mut actual)
+            .unwrap();
+        assert_eq!(actual, rels);
+        actual.clear();
+        zip.by_name("word/media/image1.png")
+            .unwrap()
+            .read_to_end(&mut actual)
+            .unwrap();
+        assert_eq!(actual, b"inert image fixture");
     }
 }

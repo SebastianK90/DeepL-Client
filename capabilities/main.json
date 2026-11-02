@@ -1,0 +1,40 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Local main window commands only.",
+  "local": true,
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-save-api-key",
+    "allow-delete-api-key",
+    "allow-toggle-favorite",
+    "allow-clear-history",
+    "allow-delete-history-entry",
+    "allow-read-clipboard",
+    "allow-share-text",
+    "allow-capture-screenshot",
+    "allow-recognize-image",
+    "allow-translate-document",
+    "allow-cancel-document",
+    "allow-save-document",
+    "allow-third-party-licenses",
+    "allow-main-window-action",
+    "allow-begin-speech-session",
+    "allow-cancel-speech",
+    "allow-synthesize-speech",
+    "allow-stream-speech",
+    "allow-lookup-alternatives",
+    "allow-apply-word-alternative",
+    "allow-lookup-dictionary",
+    "allow-bootstrap",
+    "allow-translate",
+    "allow-write",
+    "allow-remember-mode",
+    "allow-save-settings",
+    "allow-copy-text"
+  ]
+}

@@ -62,10 +62,13 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked --workspace --no-default-features --bins --lib
 cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private --test-threads=1
 node scripts/check-i18n.mjs
+node scripts/check-glib-backport.cjs
 node scripts/desktop-entry-check.cjs
 ```
 
 The workspace test command selects the actual Tokio-based TTS configuration. Optional vendor runtimes, proxy features and vendor documentation examples are outside that check. PDF tests need the embedded engine and system replacement fonts. Ignored private inspection/replay helpers require explicitly supplied local paths and never call a network provider; they are intentionally skipped in CI.
+
+Linux uses a source-compatible GLib 0.18.5 backport of RUSTSEC-2024-0429, selected through the root Cargo patch. Verify the reviewed source and resolved path with `node scripts/check-glib-backport.cjs`, and run `cargo test --release --locked glib_string_variant_iterator_handles_both_directions_and_unicode`. Optimization is necessary to reproduce the original bug. The upstream library code differs in only the two pointer-mutability lines documented in `vendor/glib/PATCHES.md`. A version-only advisory scan may still flag 0.18.5; the verified backport is the remediation, not an unrelated package upgrade or blanket advisory suppression.
 
 Browser UI checks in `scripts/*-check.cjs` require Playwright and its Chromium browser. Install tooling in an ignored directory rather than adding runtime frontend dependencies:
 
@@ -80,3 +83,19 @@ Some media checks additionally need explicit local audio fixtures. Screenshots g
 For native Quick Assist placement regressions, build the debug executable with `cargo build --locked`, then run `python3 scripts/linux-placement-check.py` in a KDE/XWayland desktop session with `xdotool` and Python GObject/GTK bindings installed. This uses isolated profiles under `.tools`, checks centered placement after moving/reopening and resizing, and verifies pointer/remembered placement against an independent compositor query. Do not use XWayland's `xdotool getmouselocation` as the pointer oracle: those coordinates can remain stale while the pointer is over native Wayland surfaces. The fixture never reads the clipboard or calls a translation service, and its entry point is excluded from release builds.
 
 The KDE pointer query uses `workspace.cursorPos`, output geometry and `callDBus` from the [KWin scripting API](https://develop.kde.org/docs/plasma/kwin/api/). It uses a private temporary file and a unique D-Bus callback, validates the KWin sender, bounds reply time/payload size, and unloads only its own script after the query.
+
+## Security validation
+
+Use the pinned Rust toolchain in `rust-toolchain.toml`. Workflow Actions and
+Node/Tauri packager versions are fixed; see `.github/SECURITY_CHECKS.md`.
+Run `node scripts/security-supply-chain.cjs`,
+`node --test scripts/security-*.test.cjs`,
+`node scripts/security-dependencies.cjs` and `node scripts/pdf-worker-check.cjs`.
+
+Both platforms should run the release executable with `--verify-pdf-engine`
+and `--verify-pdf-worker`. On native Windows/NTFS also run
+`--verify-export-origin`. These modes use only synthetic fixtures, never a
+real clipboard, API key or document. Windows origin/Job Object enforcement
+cannot be validated positively through Wine on this test host; native CI
+contains the required tests. Linux PDF processing requires kernel 5.11+ for
+close_range(CLOEXEC); there is no silent unrestricted worker fallback.

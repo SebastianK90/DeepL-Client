@@ -319,11 +319,16 @@ async function init() {
   await listen('hotkey-status',e=>{hotkeyStatus=e.payload;$('hotkey-status').textContent=localizedError(hotkeyStatus);});
   await listen('settings-changed',e=> {const keys=['provider','source','target','write_language','write_style'];const changed=keys.some(k=>e.payload[k]!==undefined && config[k]!==e.payload[k]);const languageChanged=e.payload.ui_language && config.ui_language!==e.payload.ui_language;config={...config,...e.payload};if(changed){invalidate();scheduleMain();quickGeneration++;quickResult=null;$('quick-copy').disabled=true;}syncLabels();if(languageChanged){count();renderHistory();if($('settings-dialog').open)providerInfo();if($('language-dialog').open)renderLanguages();}});
   if (!isOverlay) await listen('load-translation',e=> {if(!ready){deferredTranslation=e.payload;return;}loadTranslation(e.payload);});
-  await listen('history-changed',async()=> {try{entries=(await invoke('bootstrap')).history;renderHistory();}catch(e){notify(errorText(e));}});
+  if(!isOverlay)await listen('history-changed',async()=> {try{entries=(await invoke('bootstrap')).history;renderHistory();}catch(e){notify(errorText(e));}});
   if(isOverlay){await listen('quick-language-popup-closed',()=>{quickLanguageOpen=false;syncQuickLanguages();});await listen('quick-language-selected',async e=>{if(e.payload===quickMode&&quickOriginal)await translateQuick(quickOriginal);});}
   if (isOverlay) await listen('quick-text',e=>{if(!ready){deferredQuick=e.payload;return;}return openQuick(e.payload).catch(err=>notify(errorText(err)));});
   const state = await invoke('bootstrap');inlineQuickLanguages=state.inline_quick_languages===true;config={...config,...state.config};keyAvailable=state.key_present;hotkeyStatus=state.hotkey_status;entries=state.history;shareSupported=state.share_supported!==false;syncLabels();count();renderHistory();$('key-status').textContent=state.key_present?t('✓ Key im Schlüsselspeicher vorhanden.'):t('Kein Key gespeichert.');
   ready=true;
+  if(!isOverlay&&state.startup_notice){
+    const showRecovery=()=>notify(t(state.startup_notice));
+    if(document.hidden){const onVisible=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',onVisible);showRecovery();}};document.addEventListener('visibilitychange',onVisible);}
+    else showRecovery();
+  }
   if(!isOverlay){if(deferredTranslation){loadTranslation(deferredTranslation);deferredTranslation=null;}else scheduleMain();}
   if (isOverlay && (deferredQuick || state.quick_text) && !quickRunning) await openQuick(deferredQuick || state.quick_text);
 }

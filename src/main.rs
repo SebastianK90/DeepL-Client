@@ -4,6 +4,7 @@ mod clipboard;
 mod core;
 mod document;
 mod embedded_pdfium;
+mod export_origin;
 mod hotkey;
 mod lookup;
 mod provider;
@@ -13,6 +14,24 @@ mod speech;
 mod ui;
 
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--pdf-worker") {
+        let result = document::pdf_worker::child_entry();
+        std::process::exit(if result.is_ok() { 0 } else { 1 });
+    }
+    if std::env::args().nth(1).as_deref() == Some("--verify-pdf-worker") {
+        let result = document::pdf_worker::self_test();
+        if let Err(error) = &result {
+            eprintln!("{error:#}");
+        }
+        std::process::exit(if result.is_ok() { 0 } else { 1 });
+    }
+    if std::env::args().nth(1).as_deref() == Some("--verify-export-origin") {
+        let result = export_origin::self_test();
+        if let Err(error) = &result {
+            eprintln!("{error:#}");
+        }
+        std::process::exit(if result.is_ok() { 0 } else { 1 });
+    }
     if std::env::args().nth(1).as_deref() == Some("--verify-pdf-engine") {
         let result = (|| -> anyhow::Result<()> {
             let pdfium = embedded_pdfium::library()?;

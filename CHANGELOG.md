@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- Localize the PDF text-fit error in all six interface languages without changing PDF layout handling.
+
+- Add scheduled advisory scanning, verified dependency exceptions, pinned Actions and exact build tool versions; enable repository security alerts and secret protection.
+- Mark Windows translated exports as untrusted before atomic publication; refuse destinations without origin metadata support.
+- Move PDF parsing/rewriting into a resource-limited subprocess, keeping translation and credentials in the parent and enforcing cancellation, bounded IPC and cleanup.
+
+- Preflight Office packages before translation: reject active/embedded payloads, unsafe relationships and ambiguous ZIP paths; retain ordinary links, images, page fields and bookmark links.
+- Bound history loading and storage; preserve damaged or oversized originals in separate recovery files and continue startup with safe read-only fallback when recovery is unavailable.
+
+- Restrict all Tauri commands to their required local windows; keep history and general settings inaccessible to Quick Assist and auxiliary windows.
+
+- Backport the official GLib 0.18.5 string-variant iterator fix for RUSTSEC-2024-0429, preserving the GTK3/Tauri interfaces. Add optimized regression coverage and verify that the full dependency graph resolves to the reviewed patched source.
+
 ## 0.1.2
 
 - Resize Quick Assist from every edge and corner. Windows resizing uses the same focus protection as dragging, so the overlay stays open during the gesture.

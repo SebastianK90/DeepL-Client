@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "language-window",
+  "description": "Local quick-language window commands only.",
+  "local": true,
+  "windows": [
+    "quick-language"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-language-popup-state",
+    "allow-choose-quick-language",
+    "allow-resize-language-popup",
+    "allow-close-language-popup"
+  ]
+}

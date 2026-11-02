@@ -28,10 +28,17 @@ fn decompress(payload: &[u8], limit: usize) -> Result<Vec<u8>> {
     Ok(decoded)
 }
 fn load() -> Result<Loaded> {
-    let base = directories::ProjectDirs::from("dev", "Local", "DeepLClient")
-        .context("Cache-Verzeichnis nicht verfügbar.")?
-        .cache_dir()
-        .join("pdf-engine");
+    let base = if std::env::var_os("DEEPL_PDF_WORKER").as_deref() == Some(std::ffi::OsStr::new("1"))
+    {
+        std::path::PathBuf::from(
+            std::env::var_os("DEEPL_PDF_ENGINE_CACHE").context("PDF-Prozesscache fehlt.")?,
+        )
+    } else {
+        directories::ProjectDirs::from("dev", "Local", "DeepLClient")
+            .context("Cache-Verzeichnis nicht verfügbar.")?
+            .cache_dir()
+            .join("pdf-engine")
+    };
     #[cfg(unix)]
     {
         use std::os::unix::fs::DirBuilderExt;

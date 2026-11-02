@@ -1,0 +1,27 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "quick-window",
+  "description": "Local quick window commands only.",
+  "local": true,
+  "windows": [
+    "quick"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-bootstrap",
+    "allow-translate",
+    "allow-write",
+    "allow-remember-mode",
+    "allow-save-settings",
+    "allow-copy-text",
+    "allow-begin-quick",
+    "allow-hide-quick",
+    "allow-open-main",
+    "allow-start-quick-drag",
+    "allow-start-quick-resize",
+    "allow-open-language-popup",
+    "allow-close-language-popup",
+    "allow-replace-selection"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "capture-window",
+  "description": "Local capture-select window commands only.",
+  "local": true,
+  "windows": [
+    "capture-select"
+  ],
+  "permissions": [
+    "allow-capture-area-state",
+    "allow-capture-area-finish"
+  ]
+}

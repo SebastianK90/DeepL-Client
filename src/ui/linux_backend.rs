@@ -78,6 +78,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn glib_string_variant_iterator_handles_both_directions_and_unicode() {
+        // Run this in the optimized profile too: RUSTSEC-2024-0429 can disappear
+        // in debug builds because the C out-pointer write happens to survive.
+        let values = ["", "Grüße", "日本語", "middle", "last"];
+        let variant = values.to_variant();
+        assert_eq!(
+            variant.array_iter_str().unwrap().collect::<Vec<_>>(),
+            values
+        );
+        let mut iter = variant.array_iter_str().unwrap();
+        assert_eq!(iter.next(), Some(""));
+        assert_eq!(iter.next_back(), Some("last"));
+        assert_eq!(iter.nth(1), Some("日本語"));
+        assert_eq!(iter.next_back(), Some("middle"));
+        assert_eq!(iter.next(), None);
+        assert_eq!(
+            variant.array_iter_str().unwrap().nth_back(1),
+            Some("middle")
+        );
+        assert_eq!(variant.array_iter_str().unwrap().last(), Some("last"));
+        let empty = Vec::<String>::new().to_variant();
+        assert_eq!(empty.array_iter_str().unwrap().next(), None);
+    }
+
+    #[test]
     fn kde_wayland_uses_xwayland_for_global_window_placement() {
         assert!(prefer_x11(Some("KDE"), true, true, None));
         assert!(prefer_x11(Some("KDE:PLASMA"), true, true, None));

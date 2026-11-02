@@ -8,6 +8,7 @@ publish = false
 
 [workspace]
 members = ["vendor/msedge-tts"]
+exclude = ["vendor/glib"]
 default-members = ["."]
 resolver = "3"
 
@@ -43,9 +44,10 @@ uuid = { version = "1", features = ["v4", "serde"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.62.2", features = ["Foundation", "Globalization", "Graphics_Imaging", "Media_Ocr", "Storage_Streams", "Win32_System_WinRT"] }
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_LibraryLoader", "Win32_System_DataExchange", "Win32_UI_Shell", "Win32_UI_Controls_Dialogs"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_LibraryLoader", "Win32_System_DataExchange", "Win32_UI_Shell", "Win32_UI_Controls_Dialogs", "Win32_Storage_FileSystem", "Win32_System_SystemServices", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
 gtk = "0.18"
 image = { version = "0.25", default-features = false, features = ["png"] }
 ashpd = { version = "0.11", default-features = false, features = ["tokio"] }
@@ -62,6 +64,7 @@ panic = "abort"
 strip = true
 
 [patch.crates-io]
+glib = { path = "vendor/glib" }
 msedge-tts = { path = "vendor/msedge-tts" }
 
 [package.metadata.appimage]

@@ -23,11 +23,12 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
  fs.writeFileSync(path.join(dir,'SOURCE.json'),JSON.stringify(provenance,null,2));
  const compress=b=>zlib.brotliCompressSync(b,{params:{[zlib.constants.BROTLI_PARAM_QUALITY]:11,[zlib.constants.BROTLI_PARAM_SIZE_HINT]:b.length}});
  const packed=compress(raw);fs.writeFileSync(path.join(dir,library+'.br'),packed);
- let notices='Embedded PDFium and modified msedge-tts notices\n\n'+JSON.stringify(provenance,null,2);
+ let notices='Embedded PDFium and modified Rust dependency notices\n\n'+JSON.stringify(provenance,null,2);
  const append=file=>{const data=fs.readFileSync(file);let text;try{text=new TextDecoder('utf-8',{fatal:true}).decode(data);}catch{text=new TextDecoder('windows-1252').decode(data);}notices+='\n\n=== '+path.basename(file)+' ===\n'+text;};
  append(path.join(dir,'LICENSE'));
  const walk=folder=>{for(const name of fs.readdirSync(folder).sort()){const file=path.join(folder,name);if(fs.statSync(file).isDirectory())walk(file);else append(file);}};
  walk(path.join(dir,'licenses'));append('vendor/msedge-tts/LICENSE');
+ if(platform==='linux'){append('vendor/glib/COPYRIGHT');append('vendor/glib/LICENSE');append('vendor/glib/PATCHES.md');}
  fs.writeFileSync(path.join(dir,'licenses.br'),compress(Buffer.from(notices)));
  console.log(`PDFium ${version} embedded payload prepared: ${raw.length} -> ${packed.length} bytes.`);
 })().catch(e=>{console.error(e);process.exitCode=1;});

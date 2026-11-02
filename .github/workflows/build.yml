@@ -6,15 +6,18 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version: '22.23.4'
+      - run: node scripts/pdf-worker-check.cjs
+      - run: node scripts/security-acl-check.cjs
       - run: node scripts/setup-pdfium.cjs
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action
         with:
+          toolchain: 1.99.1
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked --workspace --no-default-features --bins --lib
@@ -32,10 +35,12 @@ jobs:
           Copy-Item -LiteralPath target/x86_64-pc-windows-msvc/release/deepl-client.exe -Destination $isolated
           Push-Location $isolated
           try {
-            $process = Start-Process -FilePath (Join-Path $isolated 'deepl-client.exe') -ArgumentList '--verify-pdf-engine' -WorkingDirectory $isolated -WindowStyle Hidden -Wait -PassThru
-            if ($process.ExitCode -ne 0) { throw 'Embedded PDF self-test failed.' }
+            foreach ($mode in @('--verify-pdf-engine', '--verify-pdf-worker', '--verify-export-origin')) {
+              $process = Start-Process -FilePath (Join-Path $isolated 'deepl-client.exe') -ArgumentList $mode -WorkingDirectory $isolated -WindowStyle Hidden -Wait -PassThru
+              if ($process.ExitCode -ne 0) { throw "Self-test failed: $mode" }
+            }
           } finally { Pop-Location }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: DeepL-Client-Windows
           path: target/x86_64-pc-windows-msvc/release/deepl-client.exe
@@ -43,10 +48,12 @@ jobs:
   linux:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version: '22.23.4'
+      - run: node scripts/pdf-worker-check.cjs
+      - run: node scripts/security-acl-check.cjs
       - run: node scripts/setup-pdfium.cjs
       - name: Linux build and bundled runtime dependencies
         run: |
@@ -54,13 +61,16 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev libxdo-dev libfuse2 file \
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav \
             tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-fra tesseract-ocr-ces tesseract-ocr-ita tesseract-ocr-jpn fonts-dejavu-core
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action
         with:
+          toolchain: 1.99.1
           components: clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - run: cargo clippy --locked --all-targets -- -D warnings
       - name: Tests including Linux OCR pipe, timeout, output cap and process cleanup
         run: cargo test --locked --workspace --no-default-features --bins --lib
+      - name: Verify reviewed GLib security backport and dependency resolution
+        run: node scripts/check-glib-backport.cjs
       - name: PDF layout regressions (serial native engine; synthetic fixtures only)
         run: cargo test --locked document::pdf::tests -- --ignored --skip replay_private --skip inspect_private --test-threads=1
       - run: node scripts/check-i18n.mjs
@@ -68,13 +78,15 @@ jobs:
         run: |
           mkdir -p .tools
           cargo test --locked pdf_roundtrip_preserves -- --ignored
+          cargo test --release --locked glib_string_variant_iterator_handles_both_directions_and_unicode
           cargo build --release --locked
           target/release/deepl-client --verify-pdf-engine
+          target/release/deepl-client --verify-pdf-worker
       - name: Install Tauri packager
-        run: cargo install tauri-cli --version '^2' --locked
+        run: cargo install tauri-cli --version '=2.12.4' --locked
       - name: Build and inspect single-file AppImage with bundled OCR and media
         run: bash scripts/build-appimage.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: DeepL-Client-Linux-AppImage
           path: target/release/bundle/appimage/*.AppImage

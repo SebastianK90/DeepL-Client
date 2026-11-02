@@ -1,0 +1,42 @@
+[
+  {
+    "name": "proc-macro-error",
+    "version": "1.0.4",
+    "advisory": "RUSTSEC-2024-0370",
+    "kind": "unmaintained",
+    "expires": "2027-02-01",
+    "reason": "Transitive GTK macro dependency; migrate when the supported GTK/Tauri stack removes it."
+  },
+  {
+    "name": "ttf-parser",
+    "version": "0.25.1",
+    "advisory": "RUSTSEC-2026-0192",
+    "kind": "unmaintained",
+    "expires": "2027-02-01",
+    "reason": "Direct PDF font metrics dependency; replacing parser needs PDF layout and font coverage validation."
+  },
+  {
+    "name": "zbus_names",
+    "version": "4.3.5",
+    "advisory": "RUSTSEC-2026-0371",
+    "kind": "unmaintained",
+    "expires": "2027-02-01",
+    "reason": "Transitive D-Bus name types; migrate with the compatible ashpd/zbus stack."
+  },
+  {
+    "name": "zvariant",
+    "version": "5.15.1",
+    "advisory": "RUSTSEC-2026-0370",
+    "kind": "unmaintained",
+    "expires": "2027-02-01",
+    "reason": "Transitive D-Bus wire types; migrate with the compatible ashpd/zbus stack."
+  },
+  {
+    "name": "zvariant_derive",
+    "version": "5.15.1",
+    "advisory": "RUSTSEC-2026-0372",
+    "kind": "unmaintained",
+    "expires": "2027-02-01",
+    "reason": "Transitive D-Bus derives; migrate with the compatible ashpd/zbus stack."
+  }
+]

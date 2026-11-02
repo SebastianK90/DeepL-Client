@@ -1,3 +1,5 @@
+#[path = "../command_policy.rs"]
+mod command_policy;
 use crate::{
     core::{
         Translation, TranslationRequest,
@@ -44,6 +46,8 @@ mod windows_resize;
 pub struct AppState {
     config: Mutex<Config>,
     history: Mutex<Vec<HistoryEntry>>,
+    history_writable: bool,
+    startup_notice: Mutex<Option<String>>,
     storage: Storage,
     web: WebProvider,
     busy: tokio::sync::Semaphore,
@@ -73,6 +77,7 @@ struct Bootstrap {
     hotkey_status: String,
     quick_text: String,
     key_present: bool,
+    startup_notice: Option<String>,
 }
 
 fn lock<'a, T>(mutex: &'a Mutex<T>) -> Result<std::sync::MutexGuard<'a, T>, String> {
@@ -93,18 +98,28 @@ async fn bootstrap(
         let _ = window;
         false
     };
-    let present =
-        tokio::task::spawn_blocking(|| key_entry().and_then(|e| Ok(e.get_password()?)).is_ok())
+    let main = window.label() == "main";
+    let present = main
+        && tokio::task::spawn_blocking(|| key_entry().and_then(|e| Ok(e.get_password()?)).is_ok())
             .await
             .unwrap_or(false);
     Ok(Bootstrap {
         share_supported: crate::share::supported(),
         inline_quick_languages,
         config: lock(&state.config)?.clone(),
-        history: lock(&state.history)?.clone(),
+        history: if main {
+            lock(&state.history)?.clone()
+        } else {
+            Vec::new()
+        },
         hotkey_status: lock(&state.hotkey_status)?.clone(),
         quick_text: lock(&state.quick_text)?.clone(),
         key_present: present,
+        startup_notice: if main {
+            lock(&state.startup_notice)?.take()
+        } else {
+            None
+        },
     })
 }
 
@@ -161,10 +176,16 @@ async fn process_text(
     if let Some(id) = quick_session {
         lock(&state.quick_session)?.complete(id, request.clone(), result.clone(), mode);
     }
-    if config.history_enabled {
+    if config.history_enabled && state.history_writable {
         let mut entries = lock(&state.history)?;
         let mut next = entries.clone();
-        history::push(&mut next, request, result.clone(), mode);
+        if !history::push(&mut next, request, result.clone(), mode) {
+            let _ = app.emit(
+                "notice",
+                "Übersetzung erfolgreich, Ergebnis ist zu groß für den Verlauf.",
+            );
+            return Ok(result);
+        }
         // A disk failure must not discard a successful (possibly billed) translation.
         match history::save(&state.storage, &next) {
             Ok(()) => {
@@ -182,13 +203,27 @@ async fn process_text(
     Ok(result)
 }
 
+fn scoped_settings(current: &Config, requested: Config, quick: bool) -> Config {
+    if !quick {
+        return requested;
+    }
+    let mut next = current.clone();
+    next.source = requested.source;
+    next.target = requested.target;
+    next.write_language = requested.write_language;
+    next.write_style = requested.write_style;
+    next
+}
+
 #[tauri::command]
 fn save_settings(
+    window: tauri::WebviewWindow,
     app: tauri::AppHandle,
     state: State<'_, AppState>,
-    mut config: Config,
+    config: Config,
 ) -> Result<(), String> {
     let mut current = lock(&state.config)?;
+    let mut config = scoped_settings(&current, config, window.label() == "quick");
     // Preference writes from another window must never revert a newly selected mode.
     config.last_mode = current.last_mode;
     config.instance_id = current.instance_id;
@@ -456,6 +491,9 @@ fn toggle_favorite(
     state: State<'_, AppState>,
     id: uuid::Uuid,
 ) -> Result<(), String> {
+    if !state.history_writable {
+        return Err(history::READ_ONLY_NOTICE.into());
+    }
     let mut entries = lock(&state.history)?;
     let mut next = entries.clone();
     let item = next
@@ -470,6 +508,9 @@ fn toggle_favorite(
 }
 #[tauri::command]
 fn clear_history(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    if !state.history_writable {
+        return Err(history::READ_ONLY_NOTICE.into());
+    }
     let mut entries = lock(&state.history)?;
     history::save(&state.storage, &[]).map_err(|e| e.to_string())?;
     entries.clear();
@@ -485,6 +526,9 @@ fn delete_history_entry(
 ) -> Result<(), String> {
     if window.label() != "main" {
         return Err("Ungültiges Fenster.".into());
+    }
+    if !state.history_writable {
+        return Err(history::READ_ONLY_NOTICE.into());
     }
     let mut entries = lock(&state.history)?;
     let mut next = entries.clone();
@@ -912,13 +956,15 @@ pub fn run() -> Result<()> {
     let storage = Storage::discover()?;
     let config = storage.load_config()?;
     let start_in_tray = config.start_in_tray;
-    let entries = history::load(&storage)?;
+    let loaded_history = history::load_startup(&storage);
     let hotkey_ms = config.hotkey_ms;
     let mode = config.provider;
     let state = AppState {
         web: WebProvider::new(config.instance_id)?,
         config: Mutex::new(config),
-        history: Mutex::new(entries),
+        history: Mutex::new(loaded_history.entries),
+        history_writable: loaded_history.writable,
+        startup_notice: Mutex::new(loaded_history.notice.map(str::to_owned)),
         storage,
         busy: tokio::sync::Semaphore::new(1),
         hotkey_status: Mutex::new("Hotkey wird initialisiert …".into()),
@@ -984,7 +1030,18 @@ pub fn run() -> Result<()> {
                     lookup_controls::apply_word_alternative,
                     lookup_controls::lookup_dictionary
                 ]);
-            move |invoke: tauri::ipc::Invoke<tauri::Wry>| handlers(invoke)
+            move |invoke: tauri::ipc::Invoke<tauri::Wry>| {
+                let webview = invoke.message.webview_ref();
+                if webview.label() != webview.window().label()
+                    || !command_policy::allows(invoke.message.command(), webview.label())
+                {
+                    invoke
+                        .resolver
+                        .reject("Dieser Befehl ist in diesem Fenster nicht erlaubt.");
+                    return true;
+                }
+                handlers(invoke)
+            }
         })
         .setup(move |app| {
             if let Some(main) = app.get_webview_window("main") {
@@ -1079,4 +1136,46 @@ pub fn run() -> Result<()> {
         })
         .run(context)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod access_tests {
+    use super::*;
+    #[test]
+    fn quick_settings_cannot_change_global_preferences_or_restore_stale_values() {
+        let current = Config {
+            provider: ProviderMode::ApiPro,
+            theme: "dark".into(),
+            ui_language: "en".into(),
+            history_enabled: false,
+            start_in_tray: false,
+            ..Default::default()
+        };
+        let requested = Config {
+            source: "FR".into(),
+            target: "IT".into(),
+            write_language: "EN".into(),
+            write_style: crate::core::WritingStyle::Business,
+            ..Default::default()
+        };
+        let next = scoped_settings(&current, requested, true);
+        assert_eq!(next.source, "FR");
+        assert_eq!(next.target, "IT");
+        assert_eq!(next.write_language, "EN");
+        assert_eq!(next.write_style, crate::core::WritingStyle::Business);
+        let mut expected = current.clone();
+        expected.source = next.source.clone();
+        expected.target = next.target.clone();
+        expected.write_language = next.write_language.clone();
+        expected.write_style = next.write_style;
+        assert_eq!(
+            serde_json::to_value(next).unwrap(),
+            serde_json::to_value(expected).unwrap()
+        );
+        let main = Config {
+            theme: "dark".into(),
+            ..Default::default()
+        };
+        assert_eq!(scoped_settings(&current, main, false).theme, "dark");
+    }
 }

@@ -68,6 +68,18 @@ pub struct Completed {
     segments: usize,
 }
 
+async fn provider_with_limits<T>(
+    future: impl std::future::Future<Output = anyhow::Result<T>>,
+    cancel: &AtomicBool,
+    deadline: Option<tokio::time::Instant>,
+) -> anyhow::Result<T> {
+    tokio::select! { biased;
+        _ = async { if let Some(deadline) = deadline { tokio::time::sleep_until(deadline).await } else { std::future::pending::<()>().await } } => Err(anyhow::anyhow!("Zeitlimit für die PDF-Verarbeitung überschritten.")),
+        _ = async { while !cancel.load(Ordering::Acquire) { tokio::time::sleep(std::time::Duration::from_millis(50)).await } } => Err(anyhow::anyhow!("Dokumentübersetzung abgebrochen.")),
+        result = future => result,
+    }
+}
+
 #[tauri::command]
 pub fn cancel_document(
     window: tauri::WebviewWindow,
@@ -146,36 +158,106 @@ pub async fn translate_document(
     let worker_name = output_name.clone();
     tokio::task::spawn_blocking(move || -> anyhow::Result<Completed> {
         let _reservation = reservation;
-        let state=worker_app.state::<AppState>(); let config=lock(&state.config).map_err(anyhow::Error::msg)?.clone();
-        let api; let provider:&dyn TranslationProvider=if config.provider==ProviderMode::Web { &state.web } else { api=ApiProvider::new(config.provider)?; &api };
-        let mut cache=HashMap::new(); let mut cache_bytes=0usize; let mut completed=0; let mut characters=0;
-        let output=crate::document::translate_cancellable(bytes,&extension,|text| {
-            anyhow::ensure!(!cancel.load(Ordering::Acquire),"Dokumentübersetzung abgebrochen.");
-            characters+=text.chars().count();
-            anyhow::ensure!(characters<=300_000 && completed<10_000,"Dokument überschreitet 300.000 Zeichen oder 10.000 Textbereiche.");
-            let translated=if let Some(value)=cache.get(text){String::clone(value)}else{
-                let request=TranslationRequest{text:text.into(),source:source.clone(),target:target.clone(),style:WritingStyle::Default};
-                let result=runtime.block_on(async {
-                    tokio::select! {
-                        result=provider.translate(&request)=>result.map(|r|r.text).map_err(anyhow::Error::from),
-                        _=async {while !cancel.load(Ordering::Acquire){tokio::time::sleep(std::time::Duration::from_millis(50)).await}}=>Err(anyhow::anyhow!("Dokumentübersetzung abgebrochen."))
-                    }
-                })?;
-                anyhow::ensure!(result.len()<=20_000,"Übersetzung ist zu groß.");
-                cache_bytes=cache_bytes.checked_add(text.len()+result.len()).ok_or_else(||anyhow::anyhow!("Übersetzungsspeicher ist zu groß."))?;
-                anyhow::ensure!(cache_bytes<=16*1024*1024,"Übersetzungsspeicher überschreitet 16 MB.");
-                cache.insert(text.to_owned(),result.clone()); result
-            };
-            completed+=1;
-            let _=worker_app.emit_to("main","document-progress",Progress{id:worker_id.clone(),completed,characters});
-            Ok(translated)
-        }, &mut || { anyhow::ensure!(!cancel.load(Ordering::Acquire),"Dokumentübersetzung abgebrochen."); Ok(()) })?;
-        anyhow::ensure!(!cancel.load(Ordering::Acquire),"Dokumentübersetzung abgebrochen.");
-        anyhow::ensure!(output.len()<=128*1024*1024,"Ausgabedokument ist zu groß.");
-        let bytes=output.len();
-        *lock(&worker_app.state::<Jobs>().output).map_err(anyhow::Error::msg)?=Some((worker_id.clone(),worker_name.clone(),output));
-        Ok(Completed{id:worker_id,name:worker_name,bytes,segments:completed})
-    }).await.map_err(|_|"Dokumentverarbeitung fehlgeschlagen.".to_string()).and_then(|r|r.map_err(|e|format!("{e:#}")))
+        let deadline = (extension == "pdf")
+            .then(|| tokio::time::Instant::now() + crate::document::pdf_worker::OVERALL);
+        let state = worker_app.state::<AppState>();
+        let config = lock(&state.config).map_err(anyhow::Error::msg)?.clone();
+        let api;
+        let provider: &dyn TranslationProvider = if config.provider == ProviderMode::Web {
+            &state.web
+        } else {
+            api = ApiProvider::new(config.provider)?;
+            &api
+        };
+        let mut cache = HashMap::new();
+        let mut cache_bytes = 0usize;
+        let mut completed = 0;
+        let mut characters = 0;
+        let output = crate::document::translate_cancellable(
+            bytes,
+            &extension,
+            |text| {
+                anyhow::ensure!(
+                    !cancel.load(Ordering::Acquire),
+                    "Dokumentübersetzung abgebrochen."
+                );
+                characters += text.chars().count();
+                anyhow::ensure!(
+                    characters <= 300_000 && completed < 10_000,
+                    "Dokument überschreitet 300.000 Zeichen oder 10.000 Textbereiche."
+                );
+                let translated = if let Some(value) = cache.get(text) {
+                    String::clone(value)
+                } else {
+                    let request = TranslationRequest {
+                        text: text.into(),
+                        source: source.clone(),
+                        target: target.clone(),
+                        style: WritingStyle::Default,
+                    };
+                    let result = runtime.block_on(provider_with_limits(
+                        async {
+                            provider
+                                .translate(&request)
+                                .await
+                                .map(|r| r.text)
+                                .map_err(anyhow::Error::from)
+                        },
+                        &cancel,
+                        deadline,
+                    ))?;
+                    anyhow::ensure!(result.len() <= 20_000, "Übersetzung ist zu groß.");
+                    cache_bytes = cache_bytes
+                        .checked_add(text.len() + result.len())
+                        .ok_or_else(|| anyhow::anyhow!("Übersetzungsspeicher ist zu groß."))?;
+                    anyhow::ensure!(
+                        cache_bytes <= 16 * 1024 * 1024,
+                        "Übersetzungsspeicher überschreitet 16 MB."
+                    );
+                    cache.insert(text.to_owned(), result.clone());
+                    result
+                };
+                completed += 1;
+                let _ = worker_app.emit_to(
+                    "main",
+                    "document-progress",
+                    Progress {
+                        id: worker_id.clone(),
+                        completed,
+                        characters,
+                    },
+                );
+                Ok(translated)
+            },
+            &mut || {
+                anyhow::ensure!(
+                    !cancel.load(Ordering::Acquire),
+                    "Dokumentübersetzung abgebrochen."
+                );
+                Ok(())
+            },
+        )?;
+        anyhow::ensure!(
+            !cancel.load(Ordering::Acquire),
+            "Dokumentübersetzung abgebrochen."
+        );
+        anyhow::ensure!(
+            output.len() <= 128 * 1024 * 1024,
+            "Ausgabedokument ist zu groß."
+        );
+        let bytes = output.len();
+        *lock(&worker_app.state::<Jobs>().output).map_err(anyhow::Error::msg)? =
+            Some((worker_id.clone(), worker_name.clone(), output));
+        Ok(Completed {
+            id: worker_id,
+            name: worker_name,
+            bytes,
+            segments: completed,
+        })
+    })
+    .await
+    .map_err(|_| "Dokumentverarbeitung fehlgeschlagen.".to_string())
+    .and_then(|r| r.map_err(|e| format!("{e:#}")))
 }
 
 #[tauri::command]
@@ -221,12 +303,7 @@ pub async fn save_document(
         return Ok(false);
     };
     tokio::task::spawn_blocking(move || {
-        let parent = destination.parent().ok_or("Ungültiger Speicherort.")?;
-        let mut file = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
-        use std::io::Write;
-        file.write_all(&bytes).map_err(|e| e.to_string())?;
-        file.as_file().sync_all().map_err(|e| e.to_string())?;
-        file.persist(&destination).map_err(|e| e.to_string())?;
+        crate::export_origin::save(&destination, &bytes).map_err(|e| e.to_string())?;
         Ok(true)
     })
     .await
@@ -330,5 +407,35 @@ mod tests {
         });
         worker.join().unwrap();
         assert!(jobs.reserve("third".into()).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod deadline_tests {
+    use super::*;
+    #[tokio::test]
+    async fn overall_deadline_interrupts_an_inflight_provider_request() {
+        let cancel = AtomicBool::new(false);
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(10);
+        let result = tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            provider_with_limits(
+                std::future::pending::<anyhow::Result<()>>(),
+                &cancel,
+                Some(deadline),
+            ),
+        )
+        .await;
+        assert!(
+            result.is_ok(),
+            "overall deadline was ignored by provider broker"
+        );
+        assert!(
+            result
+                .unwrap()
+                .unwrap_err()
+                .to_string()
+                .contains("Zeitlimit")
+        );
     }
 }

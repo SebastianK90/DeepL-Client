@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+#[path = "src/command_policy.rs"]
+mod command_policy;
 use std::path::PathBuf;
 fn main() {
     let target = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
@@ -41,5 +44,8 @@ fn main() {
         attributes = attributes
             .windows_attributes(tauri_build::WindowsAttributes::new().static_vc_runtime(false));
     }
+    attributes =
+        attributes.app_manifest(tauri_build::AppManifest::new().commands(command_policy::COMMANDS));
+    println!("cargo:rerun-if-changed=src/command_policy.rs");
     tauri_build::try_build(attributes).expect("Tauri build configuration failed");
 }

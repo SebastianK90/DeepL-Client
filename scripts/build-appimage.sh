@@ -66,6 +66,7 @@ bin="$appdir/usr/bin"
 tessdata="$appdir/usr/share/deepl-client/tessdata"
 # linuxdeploy rewrites RPATH, so checks do not use host LD_LIBRARY_PATH.
 env -u APPDIR -u LD_LIBRARY_PATH "$bin/deepl-client" --verify-pdf-engine
+env -u APPDIR -u LD_LIBRARY_PATH "$bin/deepl-client" --verify-pdf-worker
 env -u APPDIR -u LD_LIBRARY_PATH "$bin/tesseract" --version
 for lang in eng deu fra ces ita jpn; do test -s "$tessdata/$lang.traineddata"; done
 for font in DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf DejaVuSans-BoldOblique.ttf; do test -s "$appdir/usr/share/fonts/truetype/dejavu/$font"; done
