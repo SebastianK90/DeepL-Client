@@ -255,14 +255,17 @@ mod tests {
     fn windows_job_limits_are_assigned_and_drop_terminates_worker() {
         use std::os::windows::io::AsRawHandle;
         use windows_sys::Win32::{
-            Foundation::WAIT_OBJECT_0,
+            Foundation::{WAIT_OBJECT_0, WAIT_TIMEOUT},
             System::{JobObjects::*, Threading::WaitForSingleObject},
         };
+        let directory = tempfile::tempdir().unwrap();
+        let ready = directory.path().join("ready");
         let name = concat!(module_path!(), "::windows_waiting_child");
         let mut command = Command::new(std::env::current_exe().unwrap());
         command
             .args(["--exact", name.split_once("::").unwrap().1])
             .env("DEEPL_LIMITS_TEST_CHILD", "1")
+            .env("DEEPL_LIMITS_TEST_READY", &ready)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null());
@@ -307,12 +310,29 @@ mod tests {
             0
         );
         assert_ne!(in_job, 0);
+        // Prove the helper entered its stdin wait, rather than merely relying
+        // on a test-harness process that could have already exited normally.
+        let started = std::time::Instant::now();
+        while !ready.exists() && started.elapsed() < std::time::Duration::from_secs(5) {
+            assert_eq!(
+                unsafe { WaitForSingleObject(child.as_raw_handle(), 0) },
+                WAIT_TIMEOUT
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        assert!(ready.exists(), "Windows worker helper did not become ready");
+        assert_eq!(
+            unsafe { WaitForSingleObject(child.as_raw_handle(), 0) },
+            WAIT_TIMEOUT
+        );
         drop(limit);
         assert_eq!(
             unsafe { WaitForSingleObject(child.as_raw_handle(), 5_000) },
             WAIT_OBJECT_0
         );
-        assert!(!child.wait().unwrap().success());
+        // KILL_ON_JOB_CLOSE promises termination, not a nonzero exit code.
+        // The pipe remains open, so this blocked helper cannot finish itself.
+        child.wait().unwrap();
     }
 
     #[cfg(windows)]
@@ -322,6 +342,11 @@ mod tests {
             return;
         }
         use std::io::Read;
+        std::fs::write(
+            std::env::var_os("DEEPL_LIMITS_TEST_READY").unwrap(),
+            b"ready",
+        )
+        .unwrap();
         let mut byte = [0];
         std::io::stdin().read_exact(&mut byte).unwrap();
     }
