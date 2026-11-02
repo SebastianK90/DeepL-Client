@@ -19,7 +19,7 @@ futures-util = "0.3"
 rmpv = "1.3"
 scraper = { version = "0.27", default-features = false }
 encoding_rs = "0.8"
-base64 = "0.22"
+base64 = "0.23"
 brotli-decompressor = { version = "6", default-features = false, features = ["std"] }
 msedge-tts = { version = "=0.4.1", default-features = false, features = ["tokio-runtime"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
