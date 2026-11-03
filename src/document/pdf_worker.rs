@@ -469,9 +469,16 @@ pub(crate) fn self_test() -> Result<()> {
         "PDF-Prozess hat den Übersetzungsbroker nicht benutzt."
     );
     let result = library.load_pdf_from_byte_vec(output, None)?;
+    let page = result.pages().get(0)?;
+    let extracted = page.text()?.all();
+    let objects: Vec<_> = page
+        .objects()
+        .iter()
+        .filter_map(|object| object.as_text_object().map(|text| text.text()))
+        .collect();
     ensure!(
-        result.pages().get(0)?.text()?.all().trim() == "Hallo Welt",
-        "PDF-Prozessausgabe stimmt nicht."
+        extracted.trim() == "Hallo Welt",
+        "PDF self-test output mismatch: page text {extracted:?}, text objects {objects:?}"
     );
     println!(
         "PDF subprocess roundtrip passed: isolated parser, parent translation broker, Unicode font rewrite and successful child exit."
