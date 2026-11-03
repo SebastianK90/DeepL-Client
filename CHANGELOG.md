@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.3
+
 - Fix the Windows PDF-worker self-test to accept PDFium’s non-breaking-space mapping while still rejecting incorrect translation text.
 - Localize the PDF text-fit error in all six interface languages without changing PDF layout handling.
 
