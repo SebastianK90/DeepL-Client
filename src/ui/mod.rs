@@ -767,10 +767,10 @@ fn position_quick(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
         .ok()
         .map(|size| size.to_logical::<f64>(window.scale_factor().unwrap_or(scale)));
     let width = current
-        .map_or(492.0, |s| s.width)
+        .map_or(560.0, |s| s.width)
         .min(f64::from(area.size.width) / scale);
     let height = current
-        .map_or(292.0, |s| s.height)
+        .map_or(340.0, |s| s.height)
         .min(f64::from(area.size.height) / scale);
     let size = (
         (width * scale).round() as u32,

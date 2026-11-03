@@ -4,6 +4,15 @@
 
 ## 0.1.4
 
+### Corrected build — 2026-11-03
+
+- Rebuild the existing v0.1.4 release with the Linux Quick Assist layout fix. The version number remains unchanged; the binaries, tag target and SHA-256 checksums are updated together. Download the replacement files if you installed the earlier v0.1.4 build.
+- Replace the combination of CSS zoom and oversized viewport dimensions with a viewport-sized layout in real CSS pixels. This fixes the title controls and action row being clipped with the WebKit runtime bundled in the AppImage.
+- Start Quick Assist at 560 × 340 logical pixels while retaining its enforced 492 × 292 minimum and current-size behavior when reopening during the session.
+- Add native packaged-runtime layout coverage and browser checks for control bounds and resize handling at 100%, 125%, 150% and 200% DPI.
+
+### Dependency maintenance
+
 - Update reviewed GitHub Actions and Rust dependencies; migrate Linux portal calls and keep WebSocket/TLS versions compatible across the application and speech client.
 
 ## 0.1.3

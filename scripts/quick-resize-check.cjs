@@ -10,7 +10,7 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
   browser=await chromium.launch({headless:true,...(process.platform==='win32'?{channel:'msedge'}:{})});
-  for(const scale of [1,1.5]){
+  for(const scale of [1,1.25,1.5,2]){
    const context=await browser.newContext({viewport:{width:492,height:292},deviceScaleFactor:scale}),page=await context.newPage();
    await page.addInitScript(()=>{
     window.calls=[];
@@ -20,6 +20,14 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
     }}};
    });
    await page.goto(`http://127.0.0.1:${server.address().port}/?overlay=1`);
+   const layout = await page.evaluate(() => {
+    const ids = ['quick', 'quick-close', 'quick-settings', 'quick-copy', 'quick-main', 'quick-replace', 'quick-output'];
+    return ids.map(id => {const r = document.getElementById(id).getBoundingClientRect();return {id, x:r.x, y:r.y, right:r.right, bottom:r.bottom, width:r.width, height:r.height};});
+   });
+   for (const r of layout) {
+    assert(r.width > 0 && r.height > 0, `Invisible Quick Assist control: ${r.id}`);
+    assert(r.x >= -1 && r.y >= -1 && r.right <= 493 && r.bottom <= 293, `Clipped Quick Assist control: ${JSON.stringify(r)}`);
+   }
    const grip=page.locator('#quick-resize');
    assert.equal(await grip.count(),1,'Quick Assist needs a visible resize grip');
    await grip.waitFor({state:'visible'});
@@ -33,7 +41,7 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
     assert.deepEqual(await page.evaluate(()=>window.calls.find(c=>c.name==='start_quick_resize')?.args),{edge},`Wrong resize direction: ${edge}`);
     assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.name==='start_quick_drag').length),0,'Resizing must not start moving the title bar');
    }
-   for(const viewport of [{width:492,height:292},{width:800,height:550}]){
+   for(const viewport of [{width:492,height:292},{width:560,height:340},{width:800,height:550}]){
     await page.setViewportSize(viewport);
     for(const theme of ['light','dark']){
      await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
@@ -52,6 +60,6 @@ const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),
    }
    await context.close();
   }
-  console.log('Quick Assist resize grip passed: primary mouse gesture, corner placement, no action overlap, both themes and 100%/150% DPI.');
+  console.log('Quick Assist resize grip passed: primary mouse gesture, corner placement, no action overlap, both themes and 100%/125%/150%/200% DPI.');
  }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
