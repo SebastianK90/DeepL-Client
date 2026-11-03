@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.4
+
 - Update reviewed GitHub Actions and Rust dependencies; migrate Linux portal calls and keep WebSocket/TLS versions compatible across the application and speech client.
 
 ## 0.1.3
