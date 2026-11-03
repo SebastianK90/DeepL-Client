@@ -36,8 +36,12 @@ jobs:
           Push-Location $isolated
           try {
             foreach ($mode in @('--verify-pdf-engine', '--verify-pdf-worker', '--verify-export-origin')) {
-              $process = Start-Process -FilePath (Join-Path $isolated 'deepl-client.exe') -ArgumentList $mode -WorkingDirectory $isolated -WindowStyle Hidden -Wait -PassThru
-              if ($process.ExitCode -ne 0) { throw "Self-test failed: $mode" }
+              $stdout = Join-Path $isolated ($mode.TrimStart('-') + '.stdout.log')
+              $stderr = Join-Path $isolated ($mode.TrimStart('-') + '.stderr.log')
+              $process = Start-Process -FilePath (Join-Path $isolated 'deepl-client.exe') -ArgumentList $mode -WorkingDirectory $isolated -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -Wait -PassThru
+              Get-Content -LiteralPath $stdout
+              Get-Content -LiteralPath $stderr
+              if ($process.ExitCode -ne 0) { throw "Self-test failed: $mode (exit $($process.ExitCode))" }
             }
           } finally { Pop-Location }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
