@@ -360,7 +360,8 @@ async fn choose_download_portal(name: &str) -> Result<Option<PathBuf>, String> {
     match response {
         Ok(files) => {
             let uri = files.uris().first().ok_or("Kein Speicherort erhalten.")?;
-            let path = uri
+            let path = tauri::Url::parse(uri.as_str())
+                .map_err(|_| "Ungültiger lokaler Speicherort.")?
                 .to_file_path()
                 .map_err(|_| "Ungültiger lokaler Speicherort.")?;
             if !path.is_absolute() {

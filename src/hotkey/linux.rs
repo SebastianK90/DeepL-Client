@@ -34,14 +34,14 @@ async fn portal(app: AppHandle) -> anyhow::Result<()> {
         eprintln!("Portal-App-ID konnte nicht registriert werden: {error}");
     }
     let proxy = GlobalShortcuts::new().await?;
-    let session = proxy.create_session().await?;
+    let session = proxy.create_session(Default::default()).await?;
     let mut activated = proxy.receive_activated().await?;
     let shortcuts = [
         NewShortcut::new("quick-translate", "Markierten Text übersetzen")
             .preferred_trigger("CTRL+ALT+d"),
     ];
     proxy
-        .bind_shortcuts(&session, &shortcuts, None)
+        .bind_shortcuts(&session, &shortcuts, None, Default::default())
         .await?
         .response()?;
     crate::ui::set_hotkey_status(
