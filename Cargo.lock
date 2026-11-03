@@ -936,7 +936,7 @@ dependencies = [
  "ashpd",
  "async-trait",
  "async-tungstenite",
- "base64 0.22.1",
+ "base64 0.23.1",
  "brotli-decompressor",
  "directories",
  "encoding_rs",
@@ -2595,7 +2595,7 @@ version = "0.4.1"
 dependencies = [
  "async-compat",
  "async-tungstenite",
- "base64 0.22.1",
+ "base64 0.23.1",
  "chrono",
  "futures-rustls",
  "futures-util",
