@@ -44,7 +44,7 @@ jobs:
               if ($process.ExitCode -ne 0) { throw "Self-test failed: $mode (exit $($process.ExitCode))" }
             }
           } finally { Pop-Location }
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: DeepL-Client-Windows
           path: target/x86_64-pc-windows-msvc/release/deepl-client.exe
@@ -90,7 +90,7 @@ jobs:
         run: cargo install tauri-cli --version '=2.12.4' --locked
       - name: Build and inspect single-file AppImage with bundled OCR and media
         run: bash scripts/build-appimage.sh
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: DeepL-Client-Linux-AppImage
           path: target/release/bundle/appimage/*.AppImage
