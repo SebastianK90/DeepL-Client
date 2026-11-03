@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix the Windows PDF-worker self-test to accept PDFium’s non-breaking-space mapping while still rejecting incorrect translation text.
 - Localize the PDF text-fit error in all six interface languages without changing PDF layout handling.
 
 - Add scheduled advisory scanning, verified dependency exceptions, pinned Actions and exact build tool versions; enable repository security alerts and secret protection.

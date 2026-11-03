@@ -477,11 +477,38 @@ pub(crate) fn self_test() -> Result<()> {
         .filter_map(|object| object.as_text_object().map(|text| text.text()))
         .collect();
     ensure!(
-        extracted.trim() == "Hallo Welt",
+        matches_self_test_text(&extracted),
         "PDF self-test output mismatch: page text {extracted:?}, text objects {objects:?}"
     );
     println!(
         "PDF subprocess roundtrip passed: isolated parser, parent translation broker, Unicode font rewrite and successful child exit."
     );
     Ok(())
+}
+
+// PDFium may map an embedded font's space glyph to U+00A0 on Windows.
+fn matches_self_test_text(text: &str) -> bool {
+    text.split_whitespace().eq(["Hallo", "Welt"])
+}
+
+#[cfg(test)]
+mod self_test_checks {
+    use super::matches_self_test_text;
+
+    #[test]
+    fn roundtrip_accepts_pdfium_space_mappings_but_rejects_changed_words() {
+        for text in ["Hallo Welt", "Hallo\u{a0}Welt", "Hallo\r\nWelt"] {
+            assert!(matches_self_test_text(text), "valid PDF text: {text:?}");
+        }
+        for text in [
+            "",
+            "Hello world",
+            "Hallo",
+            "HalloWelt",
+            "Hallo Welt extra",
+            "Hallo Wel t",
+        ] {
+            assert!(!matches_self_test_text(text), "invalid PDF text: {text:?}");
+        }
+    }
 }
