@@ -15,8 +15,9 @@ requires review. The Linux build also runs the optimized iterator regression.
 See `vendor/glib/BACKPORT.json` for the registry archive digest, upstream fix,
 and patched file digest. No global GLib advisory ignore is configured.
 
-The five entries in `security-maintenance-exceptions.json` acknowledge existing
-unmaintained dependencies, reviewed on 2026-11-02. Each entry binds one advisory,
+The two entries in `security-maintenance-exceptions.json` acknowledge existing
+unmaintained dependencies, reviewed on 2026-11-02. The ashpd/zbus update on
+2026-11-11 removed three obsolete D-Bus maintenance exceptions. Each entry binds one advisory,
 crate, and exact version and expires on 2027-02-01. These entries cannot suppress
 a vulnerability or unsoundness advisory. Update or migrate the dependency and
 remove its entry, or review and document an extension before expiry. The reason

@@ -370,8 +370,10 @@ mod tests {
     fn successful_worker_output_does_not_leave_a_descendant_running() {
         let directory = tempfile::tempdir().unwrap();
         let pidfile = directory.path().join("pid");
+        // Consume the 5-byte INPUT header and 9-byte synthetic PDF before replying.
+        // Otherwise exiting can race the broker's separate header/body writes.
         let mut command = shell(
-            r#"/bin/sleep 20 & child_pid=$!; printf '%s' "$child_pid" > "$0"; printf '\004\005\000\000\000'; printf '%%PDF-'"#,
+            r#"/usr/bin/dd bs=1 count=14 of=/dev/null status=none || exit 43; /bin/sleep 20 & child_pid=$!; printf '%s' "$child_pid" > "$0"; printf '\004\005\000\000\000'; printf '%%PDF-'"#,
         );
         command.arg(&pidfile);
         let result = run(
@@ -419,8 +421,9 @@ mod tests {
     }
     #[test]
     fn worker_does_not_inherit_custom_environment_secrets() {
+        // Finish reading the complete INPUT frame before returning a successful OUTPUT.
         let mut command = shell(
-            r#"if [ -n "$DEEPL_SYNTHETIC_SECRET" ]; then exit 42; fi; printf '\004\005\000\000\000'; printf '%%PDF-'"#,
+            r#"/usr/bin/dd bs=1 count=14 of=/dev/null status=none || exit 43; if [ -n "$DEEPL_SYNTHETIC_SECRET" ]; then exit 42; fi; printf '\004\005\000\000\000'; printf '%%PDF-'"#,
         );
         command.env("DEEPL_SYNTHETIC_SECRET", "inert fixture");
         let output = run(

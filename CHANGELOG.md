@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Integrate dependency PRs #13–#18: zip 9.4.1, toml 1.2.0, brotli-decompressor 6.3.0, ureq 3.5.1, pdfium-render 0.9.5 and ashpd 0.14.0. Retain the explicit PDFium ABI and Linux portal features.
+- Update rustix to 1.1.6 to fix RUSTSEC-2026-0486, discovered by the current advisory scan during integration.
+- Remove three obsolete maintenance exceptions for D-Bus crates no longer in the dependency graph.
+- Make two PDF-worker security test fixtures consume their input frame before replying, avoiding a pipe race while preserving the environment-isolation and descendant-cleanup assertions.
+
 ## 0.1.4
 
 ### Corrected build — 2026-11-03

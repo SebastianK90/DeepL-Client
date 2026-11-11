@@ -14,29 +14,5 @@
     "kind": "unmaintained",
     "expires": "2027-02-01",
     "reason": "Direct PDF font metrics dependency; replacing parser needs PDF layout and font coverage validation."
-  },
-  {
-    "name": "zbus_names",
-    "version": "4.3.5",
-    "advisory": "RUSTSEC-2026-0371",
-    "kind": "unmaintained",
-    "expires": "2027-02-01",
-    "reason": "Transitive D-Bus name types; migrate with the compatible ashpd/zbus stack."
-  },
-  {
-    "name": "zvariant",
-    "version": "5.15.1",
-    "advisory": "RUSTSEC-2026-0370",
-    "kind": "unmaintained",
-    "expires": "2027-02-01",
-    "reason": "Transitive D-Bus wire types; migrate with the compatible ashpd/zbus stack."
-  },
-  {
-    "name": "zvariant_derive",
-    "version": "5.15.1",
-    "advisory": "RUSTSEC-2026-0372",
-    "kind": "unmaintained",
-    "expires": "2027-02-01",
-    "reason": "Transitive D-Bus derives; migrate with the compatible ashpd/zbus stack."
   }
 ]
