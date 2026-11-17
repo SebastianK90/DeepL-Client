@@ -14,5 +14,13 @@
     "kind": "unmaintained",
     "expires": "2027-02-01",
     "reason": "Direct PDF font metrics dependency; replacing parser needs PDF layout and font coverage validation."
+  },
+  {
+    "name": "chrono",
+    "version": "0.4.45",
+    "advisory": "RUSTSEC-2026-0543",
+    "kind": "unmaintained",
+    "expires": "2027-02-01",
+    "reason": "Unconditional PDFium metadata date API and vendored speech timestamps; migrate alongside their supported upstream APIs. Reviewed maintenance-only advisory on 2026-11-17."
   }
 ]

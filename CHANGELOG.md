@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.6 — 2026-11-17
+
+- Integrate reviewed dependency PRs #19–#23: zip 9.5.1, uuid 1.29.2, ureq 3.5.2, brotli-decompressor 6.3.1 and toml 1.2.1.
+- Retain the existing PDFium ABI, Linux portal features and dependency security policy while refreshing the locked dependency graph.
+- Review the newly reported chrono maintenance advisory and track the exact transitive version with a maintenance-only allowance expiring on 2027-02-01; vulnerability and unsoundness findings still block builds.
+
 ## 0.1.5 — 2026-11-11
 
 - Integrate dependency PRs #13–#18: zip 9.4.1, toml 1.2.0, brotli-decompressor 6.3.0, ureq 3.5.1, pdfium-render 0.9.5 and ashpd 0.14.0. Retain the explicit PDFium ABI and Linux portal features.

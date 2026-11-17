@@ -15,14 +15,23 @@ requires review. The Linux build also runs the optimized iterator regression.
 See `vendor/glib/BACKPORT.json` for the registry archive digest, upstream fix,
 and patched file digest. No global GLib advisory ignore is configured.
 
-The two entries in `security-maintenance-exceptions.json` acknowledge existing
-unmaintained dependencies, reviewed on 2026-11-02. The ashpd/zbus update on
+The three entries in `security-maintenance-exceptions.json` acknowledge
+unmaintained dependencies. The GTK/font entries were reviewed on 2026-11-02;
+chrono was reviewed on 2026-11-17 as detailed below. The ashpd/zbus update on
 2026-11-11 removed three obsolete D-Bus maintenance exceptions. Each entry binds one advisory,
 crate, and exact version and expires on 2027-02-01. These entries cannot suppress
 a vulnerability or unsoundness advisory. Update or migrate the dependency and
 remove its entry, or review and document an extension before expiry. The reason
 for each pending migration is recorded with the entry. GTK ecosystem changes
 require compatibility testing; PDF font parsing changes require layout tests.
+
+The chrono 0.4.45 allowance was reviewed on 2026-11-17 for the newly reported
+maintenance-only RUSTSEC-2026-0543 advisory. PDFium's date metadata API and the
+vendored speech client both require chrono; disabling its optional features or
+replacing only the speech timestamp formatter would not remove it. There is no
+patched chrono release for this maintenance advisory. The exact allowance expires
+on 2027-02-01 and cannot suppress a vulnerability or unsoundness finding. Migrate
+with supported PDFium/date APIs rather than introducing a partial local date shim.
 
 `node scripts/security-supply-chain.cjs` rejects floating Action references,
 floating Node/Rust versions, and unpinned or unlocked `cargo install` commands
