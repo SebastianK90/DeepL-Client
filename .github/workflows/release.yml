@@ -1,0 +1,52 @@
+name: Publish release assets
+# Manual only: attaches the binaries of an already successful "Build and test"
+# run to an existing draft release whose tag points at that run's commit.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft release tag, e.g. v0.1.7
+        required: true
+      run_id:
+        description: ID of the successful "Build and test" run for the tagged commit
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag }}
+      RUN_ID: ${{ inputs.run_id }}
+    steps:
+      - name: Verify run, tag and draft release
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid tag: $TAG"; exit 1; }
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "Invalid run id: $RUN_ID"; exit 1; }
+          run=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID")
+          [ "$(jq -r .name <<<"$run")" = "Build and test" ] || { echo "Not a Build and test run"; exit 1; }
+          [ "$(jq -r .conclusion <<<"$run")" = "success" ] || { echo "Run did not succeed"; exit 1; }
+          tag_sha=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
+          [ "$(jq -r .head_sha <<<"$run")" = "$tag_sha" ] || { echo "Run commit does not match $TAG ($tag_sha)"; exit 1; }
+          [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = "true" ] || { echo "$TAG is not a draft release"; exit 1; }
+      - name: Download and name binaries
+        run: |
+          set -euo pipefail
+          gh run download "$RUN_ID" --name DeepL-Client-Windows --dir win
+          gh run download "$RUN_ID" --name DeepL-Client-Linux-AppImage --dir linux
+          mkdir out
+          cp win/deepl-client.exe out/DeepL-Client-Windows-x86_64.exe
+          appimages=(linux/*.AppImage)
+          [ "${#appimages[@]}" -eq 1 ] || { echo "Expected one AppImage"; exit 1; }
+          cp "${appimages[0]}" out/DeepL-Client-Linux-x86_64.AppImage
+          (cd out && sha256sum DeepL-Client-Windows-x86_64.exe DeepL-Client-Linux-x86_64.AppImage > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Attach and publish
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" out/DeepL-Client-Windows-x86_64.exe out/DeepL-Client-Linux-x86_64.AppImage out/SHA256SUMS.txt
+          gh release edit "$TAG" --draft=false --latest
