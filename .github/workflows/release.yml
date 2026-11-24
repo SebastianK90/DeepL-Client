@@ -1,14 +1,14 @@
-name: Publish release assets
-# Manual only: attaches the binaries of an already successful "Build and test"
-# run to an existing draft release whose tag points at that run's commit.
+name: Publish release
+# Manual only: publishes the binaries of an already successful "Build and test"
+# run as a GitHub release, tagged at exactly the commit that run built.
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing draft release tag, e.g. v0.1.7
+        description: New release tag, e.g. v0.1.7 (must match the version in Cargo.toml)
         required: true
       run_id:
-        description: ID of the successful "Build and test" run for the tagged commit
+        description: ID of the successful "Build and test" run for the release commit
         required: true
 permissions:
   contents: write
@@ -23,7 +23,7 @@ jobs:
       TAG: ${{ inputs.tag }}
       RUN_ID: ${{ inputs.run_id }}
     steps:
-      - name: Verify run, tag and draft release
+      - name: Verify run, version and tag
         run: |
           set -euo pipefail
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid tag: $TAG"; exit 1; }
@@ -31,9 +31,14 @@ jobs:
           run=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID")
           [ "$(jq -r .name <<<"$run")" = "Build and test" ] || { echo "Not a Build and test run"; exit 1; }
           [ "$(jq -r .conclusion <<<"$run")" = "success" ] || { echo "Run did not succeed"; exit 1; }
-          tag_sha=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
-          [ "$(jq -r .head_sha <<<"$run")" = "$tag_sha" ] || { echo "Run commit does not match $TAG ($tag_sha)"; exit 1; }
-          [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = "true" ] || { echo "$TAG is not a draft release"; exit 1; }
+          sha=$(jq -r .head_sha <<<"$run")
+          gh api "repos/$GH_REPO/contents/Cargo.toml?ref=$sha" -H 'Accept: application/vnd.github.raw' \
+            | grep -qx "version = \"${TAG#v}\"" || { echo "Cargo.toml at $sha is not version ${TAG#v}"; exit 1; }
+          if tag_sha=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha 2>/dev/null); then
+            [ "$tag_sha" = "$sha" ] || { echo "Existing $TAG points at $tag_sha, not $sha"; exit 1; }
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then echo "Release $TAG already exists"; exit 1; fi
+          echo "SHA=$sha" >> "$GITHUB_ENV"
       - name: Download and name binaries
         run: |
           set -euo pipefail
@@ -45,8 +50,28 @@ jobs:
           [ "${#appimages[@]}" -eq 1 ] || { echo "Expected one AppImage"; exit 1; }
           cp "${appimages[0]}" out/DeepL-Client-Linux-x86_64.AppImage
           (cd out && sha256sum DeepL-Client-Windows-x86_64.exe DeepL-Client-Linux-x86_64.AppImage > SHA256SUMS.txt && cat SHA256SUMS.txt)
-      - name: Attach and publish
+      - name: Write release notes from CHANGELOG.md
         run: |
           set -euo pipefail
-          gh release upload "$TAG" out/DeepL-Client-Windows-x86_64.exe out/DeepL-Client-Linux-x86_64.AppImage out/SHA256SUMS.txt
-          gh release edit "$TAG" --draft=false --latest
+          version=${TAG#v}
+          previous=$(gh release view --json tagName --jq .tagName)
+          {
+            echo "## Changes"
+            gh api "repos/$GH_REPO/contents/CHANGELOG.md?ref=$SHA" -H 'Accept: application/vnd.github.raw' \
+              | awk -v v="$version" '$0 ~ "^## "v"( |$)" {f=1; next} /^## / {f=0} f'
+            echo
+            echo "## Downloads"
+            echo '- **Windows:** run `DeepL-Client-Windows-x86_64.exe` directly. No ZIP extraction or adjacent WebView2Loader.dll is required. The Microsoft Edge WebView2 Runtime must still be installed.'
+            echo '- **Linux:** make `DeepL-Client-Linux-x86_64.AppImage` executable and run it.'
+            echo '- `SHA256SUMS.txt` contains checksums for both binaries, which are the CI artifacts of the tagged commit.'
+            echo
+            echo "Source: [${SHA:0:7}](https://github.com/$GH_REPO/commit/$SHA)."
+            echo
+            echo "[Full changelog](https://github.com/$GH_REPO/compare/$previous...$TAG)."
+          } > notes.md
+          grep -q '^- ' notes.md || { echo "No CHANGELOG entry for $version"; exit 1; }
+          cat notes.md
+      - name: Create release
+        run: |
+          gh release create "$TAG" --target "$SHA" --title "DeepL Client $TAG" --notes-file notes.md --latest \
+            out/DeepL-Client-Windows-x86_64.exe out/DeepL-Client-Linux-x86_64.AppImage out/SHA256SUMS.txt
