@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Replace the application icon with the new "DS" logo for the Windows executable and the Linux AppImage.
+
 ## 0.1.7 — 2026-11-24
 
 - Fix two newly reported dependency advisories that blocked the security checks: update url to 2.5.9 for [RUSTSEC-2026-0592](https://rustsec.org/advisories/RUSTSEC-2026-0592.html) (stack overflow in `Url::origin()` on nested `blob:` URLs) and cookie to 0.18.3 for [RUSTSEC-2026-0594](https://rustsec.org/advisories/RUSTSEC-2026-0594.html) (private cookie nonces could repeat after fork).
