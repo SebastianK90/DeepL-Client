@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.8 — 2026-11-24
+
 - Replace the application icon with the new "DS" logo for the Windows executable and the Linux AppImage.
 
 ## 0.1.7 — 2026-11-24
