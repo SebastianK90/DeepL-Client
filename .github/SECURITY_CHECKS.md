@@ -51,9 +51,11 @@ On GitHub, Dependabot alerts, Dependabot security updates, Secret Scanning, and
 Secret Scanning push protection were enabled and read back on 2026-11-02.
 Repository settings remain separate from the checked-in workflow files.
 
-`release.yml` is manual-only. It publishes the binaries of an already
-successful "Build and test" run as a release, after checking that the run's
-commit carries the requested version in `Cargo.toml` and that any existing tag
-points at that commit. It writes `SHA256SUMS.txt` and takes the release notes
-from `CHANGELOG.md`. It uses only the preinstalled GitHub CLI and no
-third-party Actions.
+`release.yml` publishes a release after a successful push build on `main`
+whose `Cargo.toml` version has no release yet, so raising the version on
+`main` releases it; it can also be started manually for a given tag and run.
+It only publishes the binaries of that "Build and test" run, requires the
+dependency security check for the same commit to have passed, refuses an
+existing tag that points elsewhere, writes `SHA256SUMS.txt` and takes the
+release notes from `CHANGELOG.md`. It uses only the preinstalled GitHub CLI
+and no third-party Actions.

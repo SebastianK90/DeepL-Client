@@ -1,11 +1,19 @@
 name: Publish release
-# Manual only: publishes the binaries of an already successful "Build and test"
-# run as a GitHub release, tagged at exactly the commit that run built.
+# Publishes the binaries of a successful "Build and test" run as a GitHub
+# release, tagged at exactly the commit that run built.
+# - Automatic: after every successful push build on main whose Cargo.toml
+#   version has no release yet (raising the version releases it).
+# - Manual: workflow_dispatch with an explicit tag and run id.
+# Releases are published as pre-releases, matching the existing ones.
 on:
+  workflow_run:
+    workflows: ["Build and test"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
-        description: New release tag, e.g. v0.1.7 (must match the version in Cargo.toml)
+        description: Release tag, e.g. v0.1.7 (must match the version in Cargo.toml)
         required: true
       run_id:
         description: ID of the successful "Build and test" run for the release commit
@@ -13,33 +21,49 @@ on:
 permissions:
   contents: write
   actions: read
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
 jobs:
   publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      TAG: ${{ inputs.tag }}
-      RUN_ID: ${{ inputs.run_id }}
+      INPUT_TAG: ${{ inputs.tag }}
+      RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
     steps:
       - name: Verify run, version and tag
         run: |
           set -euo pipefail
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid tag: $TAG"; exit 1; }
           [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "Invalid run id: $RUN_ID"; exit 1; }
           run=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID")
           [ "$(jq -r .name <<<"$run")" = "Build and test" ] || { echo "Not a Build and test run"; exit 1; }
           [ "$(jq -r .conclusion <<<"$run")" = "success" ] || { echo "Run did not succeed"; exit 1; }
           sha=$(jq -r .head_sha <<<"$run")
-          gh api "repos/$GH_REPO/contents/Cargo.toml?ref=$sha" -H 'Accept: application/vnd.github.raw' \
-            | grep -qx "version = \"${TAG#v}\"" || { echo "Cargo.toml at $sha is not version ${TAG#v}"; exit 1; }
-          if tag_sha=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha 2>/dev/null); then
-            [ "$tag_sha" = "$sha" ] || { echo "Existing $TAG points at $tag_sha, not $sha"; exit 1; }
+          version=$(gh api "repos/$GH_REPO/contents/Cargo.toml?ref=$sha" -H 'Accept: application/vnd.github.raw' \
+            | sed -n 's/^version = "\([0-9]*\.[0-9]*\.[0-9]*\)"$/\1/p' | head -n1)
+          [ -n "$version" ] || { echo "No version in Cargo.toml at $sha"; exit 1; }
+          tag="v$version"
+          if [ -n "$INPUT_TAG" ] && [ "$INPUT_TAG" != "$tag" ]; then echo "Cargo.toml at $sha is $tag, not $INPUT_TAG"; exit 1; fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            if [ "$GITHUB_EVENT_NAME" = "workflow_run" ]; then echo "Release $tag already exists; nothing to publish."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0; fi
+            echo "Release $tag already exists"; exit 1
           fi
-          if gh release view "$TAG" >/dev/null 2>&1; then echo "Release $TAG already exists"; exit 1; fi
-          echo "SHA=$sha" >> "$GITHUB_ENV"
+          if tag_sha=$(gh api "repos/$GH_REPO/commits/$tag" --jq .sha 2>/dev/null); then
+            [ "$tag_sha" = "$sha" ] || { echo "Existing $tag points at $tag_sha, not $sha"; exit 1; }
+          fi
+          # The dependency advisory scan for the same commit must have passed too.
+          security=$(gh api "repos/$GH_REPO/actions/runs?head_sha=$sha&event=push" \
+            --jq '[.workflow_runs[] | select(.name=="Dependency and supply chain security")][0].conclusion')
+          [ "$security" = "success" ] || { echo "Dependency security check for $sha is '$security', not success"; exit 1; }
+          { echo "SHA=$sha"; echo "TAG=$tag"; echo "VERSION=$version"; } >> "$GITHUB_ENV"
       - name: Download and name binaries
+        if: env.SKIP != '1'
         run: |
           set -euo pipefail
           gh run download "$RUN_ID" --name DeepL-Client-Windows --dir win
@@ -51,14 +75,15 @@ jobs:
           cp "${appimages[0]}" out/DeepL-Client-Linux-x86_64.AppImage
           (cd out && sha256sum DeepL-Client-Windows-x86_64.exe DeepL-Client-Linux-x86_64.AppImage > SHA256SUMS.txt && cat SHA256SUMS.txt)
       - name: Write release notes from CHANGELOG.md
+        if: env.SKIP != '1'
         run: |
           set -euo pipefail
-          version=${TAG#v}
-          previous=$(gh release view --json tagName --jq .tagName)
+          previous=$(gh api "repos/$GH_REPO/releases?per_page=20" --jq '[.[] | select(.draft | not)][0].tag_name')
+          [ -n "$previous" ] && [ "$previous" != null ] || { echo "No previous release found"; exit 1; }
           {
             echo "## Changes"
             gh api "repos/$GH_REPO/contents/CHANGELOG.md?ref=$SHA" -H 'Accept: application/vnd.github.raw' \
-              | awk -v v="$version" '$0 ~ "^## "v"( |$)" {f=1; next} /^## / {f=0} f'
+              | awk -v v="$VERSION" '$0 ~ "^## "v"( |$)" {f=1; next} /^## / {f=0} f'
             echo
             echo "## Downloads"
             echo '- **Windows:** run `DeepL-Client-Windows-x86_64.exe` directly. No ZIP extraction or adjacent WebView2Loader.dll is required. The Microsoft Edge WebView2 Runtime must still be installed.'
@@ -69,9 +94,10 @@ jobs:
             echo
             echo "[Full changelog](https://github.com/$GH_REPO/compare/$previous...$TAG)."
           } > notes.md
-          grep -q '^- ' notes.md || { echo "No CHANGELOG entry for $version"; exit 1; }
+          grep -q '^- ' notes.md || { echo "No CHANGELOG entry for $VERSION"; exit 1; }
           cat notes.md
       - name: Create release
+        if: env.SKIP != '1'
         run: |
-          gh release create "$TAG" --target "$SHA" --title "DeepL Client $TAG" --notes-file notes.md --latest \
+          gh release create "$TAG" --target "$SHA" --title "DeepL Client $TAG" --notes-file notes.md --prerelease \
             out/DeepL-Client-Windows-x86_64.exe out/DeepL-Client-Linux-x86_64.AppImage out/SHA256SUMS.txt
