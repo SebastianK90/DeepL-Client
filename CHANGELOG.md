@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.7 — 2026-11-24
+
+- Fix two newly reported dependency advisories that blocked the security checks: update url to 2.5.9 for [RUSTSEC-2026-0592](https://rustsec.org/advisories/RUSTSEC-2026-0592.html) (stack overflow in `Url::origin()` on nested `blob:` URLs) and cookie to 0.18.3 for [RUSTSEC-2026-0594](https://rustsec.org/advisories/RUSTSEC-2026-0594.html) (private cookie nonces could repeat after fork).
+- Integrate dependency PRs #24–#31: zip 9.8.1, tauri 2.12.7, uuid 1.29.3, brotli-decompressor 6.3.2, ashpd 0.14.1, tauri-build 2.7.6, tauri-runtime 2.12.4 and async-compat 0.2.7, including their locked companion dependencies.
+
 ## 0.1.6 — 2026-11-17
 
 - Integrate reviewed dependency PRs #19–#23: zip 9.5.1, uuid 1.29.2, ureq 3.5.2, brotli-decompressor 6.3.1 and toml 1.2.1.
